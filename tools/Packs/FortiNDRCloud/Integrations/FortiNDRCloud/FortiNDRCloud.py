@@ -440,7 +440,7 @@ def getIncidents(result, last_fetch) -> Tuple[Dict[str, int], List[dict[str, Any
 
     last_incident_time = last_fetch
     for detection in result.outputs:
-        incident_time = datetime.strptime(detection['first_seen'], DATE_FORMAT)
+        incident_time = datetime.strptime(detection['created'], DATE_FORMAT)
 
         # Check if inciden has been reported before
         if last_fetch >= incident_time:
