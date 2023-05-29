@@ -10,6 +10,10 @@ configuration:
   name: api_key
   type: 4
   required: true
+#- display: Connect to UAT Environment
+#  name: testing
+#  defaultvalue: 'false'
+#  type: 8
 - display: First fetch timestamp (<number> <time unit>, e.g., 12 hours, 7 days)
   name: first_fetch
   type: 0
