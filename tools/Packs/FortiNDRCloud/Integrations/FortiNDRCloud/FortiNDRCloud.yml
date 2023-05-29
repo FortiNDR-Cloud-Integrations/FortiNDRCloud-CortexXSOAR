@@ -10,10 +10,6 @@ configuration:
   name: api_key
   type: 4
   required: true
-- display: Connect to UAT Environment
-  name: testing
-  defaultvalue: 'false'
-  type: 8
 - display: First fetch timestamp (<number> <time unit>, e.g., 12 hours, 7 days)
   name: first_fetch
   type: 0
@@ -350,7 +346,7 @@ script:
       - desc
       description: 'Sorts by account code first, then timestamp. asc or desc. The default is desc.'
     - name: limit
-      description: 'The maximum number of records to return, default: 100, max: 1000.'
+      description: 'The maximum number of records to return, default: 1000.'
       defaultValue: '1000'
     - name: offset
       description: 'The number of records to skip past. Default: 0.'
@@ -908,7 +904,7 @@ script:
       description: List of event fields to check for impacted devices
     description: Create a new detection rule.
 
-  dockerimage: demisto/python3:3.10.11.58677
+  dockerimage: demisto/python3:3.10.11.61265
   isfetch: true
   runonce: false
   subtype: python3
