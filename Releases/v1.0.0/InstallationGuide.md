@@ -6,4 +6,4 @@
 5. If prompted, click on **Update Version**
 6. In the search box, search for Fortinet FortiNDR Cloud , the integration would show up in the **NetWork Security** list.
 7. Click on **Add Instance** one the right side of the Fortinet FortiNDR Cloud app to add a new instance.
-8. Follow the guide to configure the instance.
+8. Follow the Help at the right of the window to configure the instance.
