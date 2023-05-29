@@ -439,7 +439,10 @@ def getIncidents(result, last_fetch) -> Tuple[Dict[str, int], List[dict[str, Any
     incidents: List[Dict[str, Any]] = []
 
     last_incident_time = last_fetch
-    for detection in result.outputs:
+    
+    results = result.outputs if isinstance(result, CommandResults) else []
+    
+    for detection in results:
         incident_time = datetime.strptime(detection['created'], DATE_FORMAT)
 
         # Check if inciden has been reported before
