@@ -125,59 +125,6 @@ Get a list of all sensors.
                     "AVLab FSA - New Malware"
                 ],
                 "updated": "2023-05-01T16:27:57.508Z"
-            },
-            {
-                "account_code": "gig",
-                "admin": null,
-                "city": null,
-                "country": null,
-                "created": "2022-12-30T16:47:01.725Z",
-                "disabled": null,
-                "interfaces": null,
-                "location": null,
-                "pcap_enabled": false,
-                "sensor_id": "gig5",
-                "serial_number": null,
-                "status": null,
-                "subdivision": null,
-                "tags": [],
-                "updated": "2022-12-30T16:47:01.725Z"
-            },
-            {
-                "account_code": "gig",
-                "admin": null,
-                "city": null,
-                "country": null,
-                "created": "2023-02-28T06:16:35.592Z",
-                "disabled": null,
-                "interfaces": null,
-                "location": null,
-                "pcap_enabled": false,
-                "sensor_id": "gig6",
-                "serial_number": null,
-                "status": null,
-                "subdivision": null,
-                "tags": [],
-                "updated": "2023-02-28T06:16:35.592Z"
-            },
-            {
-                "account_code": "gig",
-                "admin": null,
-                "city": "Burnaby",
-                "country": "",
-                "created": "2023-04-05T21:39:42.302Z",
-                "disabled": null,
-                "interfaces": null,
-                "location": null,
-                "pcap_enabled": false,
-                "sensor_id": "gig7",
-                "serial_number": null,
-                "status": null,
-                "subdivision": "",
-                "tags": [
-                    "FortiGuard QA"
-                ],
-                "updated": "2023-05-01T16:28:16.766Z"
             }
         ]
     }
@@ -192,9 +139,6 @@ Get a list of all sensors.
 >| gig |  |  |  | 2022-12-06T00:26:15.982Z |  |  |  | false | gig2 |  |  |  |  | 2022-12-06T00:26:15.982Z |
 >| gig |  |  |  | 2022-12-06T18:54:29.195Z |  |  |  | false | gig3 | VMware-56 4d a9 5a 91 a7 2e ee-74 4d af cb 08 84 34 b4 |  |  |  | 2022-12-06T18:54:29.195Z |
 >| gig |  | Burnaby |  | 2022-12-06T22:41:39.561Z |  |  |  | false | gig4 |  |  |  | AVLab FSA - New Malware | 2023-05-01T16:27:57.508Z |
->| gig |  |  |  | 2022-12-30T16:47:01.725Z |  |  |  | false | gig5 |  |  |  |  | 2022-12-30T16:47:01.725Z |
->| gig |  |  |  | 2023-02-28T06:16:35.592Z |  |  |  | false | gig6 |  |  |  |  | 2023-02-28T06:16:35.592Z |
->| gig |  | Burnaby |  | 2023-04-05T21:39:42.302Z |  |  |  | false | gig7 |  |  |  | FortiGuard QA | 2023-05-01T16:28:16.766Z |
 
 
 #### Command example
@@ -400,11 +344,11 @@ Get a list of all the PCAP tasks.
 ```
 
 #### Human Readable Output
-
+Note: Only a subset of the result columns is shown on the table.
 >### Results
->|account_code|actual_end_time|actual_start_time|bpf|created|created_email|created_uuid|description|files|has_files|name|requested_end_time|requested_start_time|sensor_ids|status|task_uuid|updated|updated_email|updated_uuid|
->|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
->| ice | 2020-01-18T03:16:12.214Z | 2020-01-17T03:16:12.214Z | src host 10.30.8.192 and dst port 10001 | 2020-01-17T03:18:17.584Z | test@test.com | 32329e78-c51f-4da4-bd56-6bfb35d84a9c | src host 10.30.8.192 and dst port 10001 |  | false | Meh-Ike phone 10001 | 2020-01-18T03:16:12.214Z | 2020-01-17T03:16:12.214Z | ice1 | inactive | de1ada61-fef3-4cc7-9287-43370cb53ccd | 2020-01-18T03:17:35.937Z |  |  |
+>|account_code|actual_end_time|actual_start_time|bpf|created|created_email|created_uuid|description|files|has_files|name|requested_end_time|requested_start_time|sensor_ids|status|task_uuid|
+>|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+>| ice | 2020-01-18T03:16:12.214Z | 2020-01-17T03:16:12.214Z | src host 10.30.8.192 and dst port 10001 | 2020-01-17T03:18:17.584Z | test@test.com | 32329e78-c51f-4da4-bd56-6bfb35d84a9c | src host 10.30.8.192 and dst port 10001 |  | false | Meh-Ike phone 10001 | 2020-01-18T03:16:12.214Z | 2020-01-17T03:16:12.214Z | ice1 | inactive | de1ada61-fef3-4cc7-9287-43370cb53ccd |
 
 
 ### fortindr-cloud-create-task
@@ -672,20 +616,6 @@ Get network telemetry data grouped by time
                     "percentile": 95,
                     "percentile_bps": 795340046,
                     "timestamp": "2022-08-21T00:00:00.000000Z"
-                },
-                {
-                    "account_code": "vzg",
-                    "interval": "day",
-                    "percentile": 95,
-                    "percentile_bps": 74340264,
-                    "timestamp": "2022-08-21T00:00:00.000000Z"
-                },
-                {
-                    "account_code": "u0y4hMKN",
-                    "interval": "day",
-                    "percentile": 95,
-                    "percentile_bps": 990223331,
-                    "timestamp": "2022-08-21T00:00:00.000000Z"
                 }
             ]
         }
@@ -701,8 +631,6 @@ Get network telemetry data grouped by time
 >| zgv | day | 95 | 6050493542 | 2022-08-21T00:00:00.000000Z |
 >| ysz | day | 95 | 26125723400 | 2022-08-21T00:00:00.000000Z |
 >| wum | day | 95 | 795340046 | 2022-08-21T00:00:00.000000Z |
->| vzg | day | 95 | 74340264 | 2022-08-21T00:00:00.000000Z |
->| u0y4hMKN | day | 95 | 990223331 | 2022-08-21T00:00:00.000000Z |
 
 
 ### fortindr-cloud-get-entity-summary
@@ -947,40 +875,6 @@ Get DHCP information about an IP address.
                     "mac": "00:24:9b:48:03:e7",
                     "sensor_id": null,
                     "start_lease_as_long": 1678718596004
-                },
-                {
-                    "customer_id": "chf",
-                    "hostnames": [
-                        "C02YG1D9JHD2"
-                    ],
-                    "ip": "10.20.0.69",
-                    "lease_end": "2023-03-13T14:43:16.004Z",
-                    "lease_start": "2023-02-21T17:43:46.991Z",
-                    "mac": "70:88:6b:88:25:a6",
-                    "sensor_id": null,
-                    "start_lease_as_long": 1677001426991
-                },
-                {
-                    "customer_id": "chf",
-                    "hostnames": [],
-                    "ip": "10.20.0.69",
-                    "lease_end": "2023-02-21T17:43:46.991Z",
-                    "lease_start": "2023-02-21T17:41:33.830Z",
-                    "mac": "70:88:6b:88:25:a6",
-                    "sensor_id": null,
-                    "start_lease_as_long": 1677001293830
-                },
-                {
-                    "customer_id": "chf",
-                    "hostnames": [
-                        "HQ_MFG_TE_LAB1"
-                    ],
-                    "ip": "10.20.0.69",
-                    "lease_end": "2023-02-21T17:41:33.830Z",
-                    "lease_start": "2022-05-15T20:32:25.250Z",
-                    "mac": "98:90:96:b5:82:b4",
-                    "sensor_id": null,
-                    "start_lease_as_long": 1652646745250
                 }
             ]
         }
@@ -996,9 +890,6 @@ Get DHCP information about an IP address.
 >| chf | DZVZZY2 | 10.20.0.69 |  | 2023-04-10T16:00:25.623Z | 98:e7:43:c6:69:e2 |  | 1681142425623 |
 >| gst | C02YC4RCJHD2 | 10.20.0.69 |  | 2019-12-03T20:00:57.802Z | d8:d0:90:06:8b:3b |  | 1575403257802 |
 >| chf | C02CK4ADLVDL | 10.20.0.69 | 2023-04-10T16:00:25.623Z | 2023-03-13T14:43:16.004Z | 00:24:9b:48:03:e7 |  | 1678718596004 |
->| chf | C02YG1D9JHD2 | 10.20.0.69 | 2023-03-13T14:43:16.004Z | 2023-02-21T17:43:46.991Z | 70:88:6b:88:25:a6 |  | 1677001426991 |
->| chf |  | 10.20.0.69 | 2023-02-21T17:43:46.991Z | 2023-02-21T17:41:33.830Z | 70:88:6b:88:25:a6 |  | 1677001293830 |
->| chf | HQ_MFG_TE_LAB1 | 10.20.0.69 | 2023-02-21T17:41:33.830Z | 2022-05-15T20:32:25.250Z | 98:90:96:b5:82:b4 |  | 1652646745250 |
 
 
 ### fortindr-cloud-get-entity-file
@@ -1192,68 +1083,6 @@ Get a list of detections.
                 "updated": "2022-08-23T23:25:58.939678Z",
                 "username": null,
                 "uuid": "6e534db2-07db-4cb5-ad36-7bbbcdd9f31f"
-            },
-            {
-                "account_uuid": "1e5dbd92-9dca-4f36-bec5-c292172cbeaa",
-                "created": "2022-08-23T22:26:36.675600Z",
-                "device_ip": "172.18.96.86",
-                "event_count": 2,
-                "first_seen": "2022-08-23T21:44:33.343000Z",
-                "hostname": null,
-                "indicators": null,
-                "last_seen": "2022-08-23T22:02:18.535000Z",
-                "muted": false,
-                "muted_comment": null,
-                "muted_device_uuid": null,
-                "muted_rule": true,
-                "muted_timestamp": null,
-                "muted_user_uuid": null,
-                "resolution": null,
-                "resolution_comment": null,
-                "resolution_timestamp": null,
-                "resolution_user_uuid": null,
-                "rule_category": "Miscellaneous",
-                "rule_confidence": "high",
-                "rule_description": "test",
-                "rule_name": "test icebrg",
-                "rule_severity": "high",
-                "rule_uuid": "46e00dd4-2bf2-4d1c-99e7-b5ac8bc71b62",
-                "sensor_id": "rzt37",
-                "status": "active",
-                "updated": "2022-08-23T23:26:59.600742Z",
-                "username": null,
-                "uuid": "d1264843-cb3d-4f31-a19c-7291a5a4fbbd"
-            },
-            {
-                "account_uuid": "55985199-810b-4a7b-aa88-10190796fb6b",
-                "created": "2022-08-23T22:00:02.068235Z",
-                "device_ip": "172.19.104.101",
-                "event_count": 84,
-                "first_seen": "2022-08-23T18:12:32.545000Z",
-                "hostname": null,
-                "indicators": null,
-                "last_seen": "2022-10-31T01:45:51.512000Z",
-                "muted": false,
-                "muted_comment": null,
-                "muted_device_uuid": "9e62c23c-93e0-422c-915f-0fdb8ba49bcd",
-                "muted_rule": false,
-                "muted_timestamp": null,
-                "muted_user_uuid": null,
-                "resolution": null,
-                "resolution_comment": null,
-                "resolution_timestamp": null,
-                "resolution_user_uuid": null,
-                "rule_category": "Posture:Potentially Unauthorized Software or Device",
-                "rule_confidence": "high",
-                "rule_description": "This logic is intended to detect HTTP connections made by the TeamViewer remote administration tool. A remote administration tool is a type of software that allows remote users to manage a host as if they had physical access. These types of tools can serve legitimate purposes in an enterprise environment but, if installed without authorization, may also indicate a compromised host. An attacker with access to a remote administration tool on a system can use it to surveil the user, install malware, or exfiltrate files from the remote host. Unauthorized installations also provide access to the enterprise network, circumventing any network controls. \r\n\r\nFortiGuard ATR considers TeamViewer to be moderate severity, since it is not inherently malicious, but may be indicative of an attempt to circumvent organizational security controls or a malicious actor using it unbeknownst to the user for privileged remote access. FortiGuard ATR considers this detection high confidence due to the uniqueness of the user agent in HTTP requests made by the client.\r\n\r\n## Next Steps \r\n1. Determine if this detection is a true positive by verifying that the affected host has the TeamViewer software installed.\r\n2. Remove any unapproved software.\r\n3. Control software installations on company assets.",
-                "rule_name": "TeamViewer Remote Administration Tool",
-                "rule_severity": "moderate",
-                "rule_uuid": "b1258c0b-3442-43e8-a98e-66440ebdbe6d",
-                "sensor_id": "csp1",
-                "status": "active",
-                "updated": "2022-10-31T02:52:02.084699Z",
-                "username": null,
-                "uuid": "280fc4c8-8e04-4110-86f5-4022595882bf"
             }
         ]
     }
@@ -1261,16 +1090,12 @@ Get a list of detections.
 ```
 
 #### Human Readable Output
-
+Note: Only a subset of the result columns is shown on the table.
 >### Results
->|account_uuid|created|device_ip|event_count|first_seen|hostname|indicators|last_seen|muted|muted_comment|muted_device_uuid|muted_rule|muted_timestamp|muted_user_uuid|resolution|resolution_comment|resolution_timestamp|resolution_user_uuid|rule_category|rule_confidence|rule_description|rule_name|rule_severity|rule_uuid|sensor_id|status|updated|username|uuid|
->|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
->| 1e5dbd92-9dca-4f36-bec5-c292172cbeaa | 2022-08-23T22:24:44.047670Z | 172.18.96.86 | 2 | 2022-08-23T21:44:33.343000Z |  |  | 2022-08-23T22:02:18.535000Z | false |  |  | true |  |  |  |  |  |  | Miscellaneous | high | test | test icebrg | high | 40b4d7e2-66f7-412f-b997-4ec6734313f4 | rzt37 | active | 2022-08-23T23:25:06.721425Z |  | 631616f0-27ad-434e-bbfa-f8808785ec40 |
->| 1e5dbd92-9dca-4f36-bec5-c292172cbeaa | 2022-08-23T22:25:41.295229Z | 172.18.96.86 | 2 | 2022-08-23T21:44:33.343000Z |  |  | 2022-08-23T22:02:18.535000Z | false |  |  | true |  |  |  |  |  |  | Miscellaneous | high | test | test icebrg | high | 432ec2a3-11d8-4bd8-81fa-abd39dac5a8d | rzt37 | active | 2022-08-23T23:25:58.939678Z |  | 6e534db2-07db-4cb5-ad36-7bbbcdd9f31f |
->| 1e5dbd92-9dca-4f36-bec5-c292172cbeaa | 2022-08-23T22:26:36.675600Z | 172.18.96.86 | 2 | 2022-08-23T21:44:33.343000Z |  |  | 2022-08-23T22:02:18.535000Z | false |  |  | true |  |  |  |  |  |  | Miscellaneous | high | test | test icebrg | high | 46e00dd4-2bf2-4d1c-99e7-b5ac8bc71b62 | rzt37 | active | 2022-08-23T23:26:59.600742Z |  | d1264843-cb3d-4f31-a19c-7291a5a4fbbd |
->| 55985199-810b-4a7b-aa88-10190796fb6b | 2022-08-23T22:00:02.068235Z | 172.19.104.101 | 84 | 2022-08-23T18:12:32.545000Z |  |  | 2022-10-31T01:45:51.512000Z | false |  | 9e62c23c-93e0-422c-915f-0fdb8ba49bcd | false |  |  |  |  |  |  | Posture:Potentially Unauthorized Software or Device | high | This logic is intended to detect HTTP connections made by the TeamViewer remote administration tool. A remote administration tool is a type of software that allows remote users to manage a host as if they had physical access. These types of tools can serve legitimate purposes in an enterprise environment but, if installed without authorization, may also indicate a compromised host. An attacker with access to a remote administration tool on a system can use it to surveil the user, install malware, or exfiltrate files from the remote host. Unauthorized installations also provide access to the enterprise network, circumventing any network controls. <br/><br/>FortiGuard ATR considers TeamViewer to be moderate severity, since it is not inherently malicious, but may be indicative of an attempt to circumvent organizational security controls or a malicious actor using it unbeknownst to the user for privileged remote access. FortiGuard ATR considers this detection high confidence due to the uniqueness of the user agent in HTTP requests made by the client.<br/><br/>## Next Steps <br/>1. Determine if this detection is a true positive by verifying that the affected host has the TeamViewer software installed.<br/>2. Remove any unapproved software.<br/>3. Control software installations on company assets. | TeamViewer Remote Administration Tool | moderate | b1258c0b-3442-43e8-a98e-66440ebdbe6d | csp1 | active | 2022-10-31T02:52:02.084699Z |  | 280fc4c8-8e04-4110-86f5-4022595882bf |
-
-
+>|account_uuid|created|device_ip|event_count|first_seen|last_seen|muted|muted_rule|rule_category|rule_confidence|rule_description|rule_name|rule_severity|sensor_id|status|
+>|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+>| 1e5dbd92-9dca-4f36-bec5-c292172cbeaa | 2022-08-23T22:24:44.047670Z | 172.18.96.86 | 2 | 2022-08-23T21:44:33.343000Z | 2022-08-23T22:02:18.535000Z | false | true | Miscellaneous | high | test | test icebrg | high | rzt37 | active | 
+>| 1e5dbd92-9dca-4f36-bec5-c292172cbeaa | 2022-08-23T22:25:41.295229Z | 172.18.96.86 | 2 | 2022-08-23T21:44:33.343000Z | 2022-08-23T22:02:18.535000Z | false | true | Miscellaneous | high | test | test icebrg | high | rzt37 | active | 
 ### fortindr-cloud-get-detection-rules
 
 ***
@@ -1374,71 +1199,6 @@ Get a list of detection rules.
                         "muted_timestamp": "2023-05-11T17:02:09.975786Z",
                         "muted_user_uuid": "cd3ea8eb-e014-4f62-905d-78a021c768b2",
                         "query_filter": null
-                    },
-                    {
-                        "account_uuid": "29266c1a-645b-458e-b4c7-9bb3405d79be",
-                        "detection_count": null,
-                        "detection_muted_count": null,
-                        "detection_resolved_count": null,
-                        "first_seen": null,
-                        "last_seen": null,
-                        "muted": true,
-                        "muted_comment": null,
-                        "muted_timestamp": "2023-05-11T17:02:10.095205Z",
-                        "muted_user_uuid": "cd3ea8eb-e014-4f62-905d-78a021c768b2",
-                        "query_filter": null
-                    },
-                    {
-                        "account_uuid": "f6f6f836-8bcd-4f5d-bd61-68d303c4f634",
-                        "detection_count": null,
-                        "detection_muted_count": null,
-                        "detection_resolved_count": null,
-                        "first_seen": null,
-                        "last_seen": null,
-                        "muted": true,
-                        "muted_comment": null,
-                        "muted_timestamp": "2023-05-11T17:02:10.151422Z",
-                        "muted_user_uuid": "cd3ea8eb-e014-4f62-905d-78a021c768b2",
-                        "query_filter": null
-                    },
-                    {
-                        "account_uuid": "11a7364e-f020-4ba3-b7c1-ac17006f379b",
-                        "detection_count": null,
-                        "detection_muted_count": null,
-                        "detection_resolved_count": null,
-                        "first_seen": null,
-                        "last_seen": null,
-                        "muted": true,
-                        "muted_comment": null,
-                        "muted_timestamp": "2023-05-11T17:02:10.040958Z",
-                        "muted_user_uuid": "cd3ea8eb-e014-4f62-905d-78a021c768b2",
-                        "query_filter": null
-                    },
-                    {
-                        "account_uuid": "6679810e-5a03-4a82-8458-d1c76b3e1942",
-                        "detection_count": null,
-                        "detection_muted_count": null,
-                        "detection_resolved_count": null,
-                        "first_seen": null,
-                        "last_seen": null,
-                        "muted": true,
-                        "muted_comment": null,
-                        "muted_timestamp": "2023-05-11T17:02:09.782635Z",
-                        "muted_user_uuid": "cd3ea8eb-e014-4f62-905d-78a021c768b2",
-                        "query_filter": null
-                    },
-                    {
-                        "account_uuid": "55f39b72-2622-4137-9051-bc2ff364f059",
-                        "detection_count": null,
-                        "detection_muted_count": null,
-                        "detection_resolved_count": null,
-                        "first_seen": null,
-                        "last_seen": null,
-                        "muted": true,
-                        "muted_comment": null,
-                        "muted_timestamp": "2023-05-11T17:02:09.915832Z",
-                        "muted_user_uuid": "cd3ea8eb-e014-4f62-905d-78a021c768b2",
-                        "query_filter": null
                     }
                 ],
                 "run_account_uuids": [
@@ -1454,135 +1214,6 @@ Get a list of detection rules.
                 "updated": "2023-05-11T17:02:09.720180Z",
                 "updated_user_uuid": "cd3ea8eb-e014-4f62-905d-78a021c768b2",
                 "uuid": "26874859-0148-4d7f-9a83-145d74830cd9"
-            },
-            {
-                "account_uuid": "b1f533b5-6360-494a-9f8b-9d90f1ad0207",
-                "auto_resolution_minutes": 30240,
-                "category": "Attack:Installation",
-                "confidence": "high",
-                "created": "2023-05-11T16:51:20.566178Z",
-                "created_user_uuid": "cd3ea8eb-e014-4f62-905d-78a021c768b2",
-                "critical_updated": "2023-05-11T16:51:20.566178Z",
-                "description": "Test",
-                "device_ip_fields": [
-                    "src.ip"
-                ],
-                "enabled": true,
-                "indicator_fields": [
-                    "dst.ip",
-                    "http:host",
-                    "http:user_agent",
-                    "http:uri.uri"
-                ],
-                "name": "Test: Cobalt Strike GlobeImposter Malleable Stager HTTP Request",
-                "primary_attack_id": "T1105",
-                "query_signature": "(\r\n    http:src.internal = true\r\n    OR http:source = \"Zscaler\"\r\n)\r\nAND uri.path IN (\"/JHGCd476334\", \"/JHGcD476334\")",
-                "rule_accounts": [
-                    {
-                        "account_uuid": "55f39b72-2622-4137-9051-bc2ff364f059",
-                        "detection_count": null,
-                        "detection_muted_count": null,
-                        "detection_resolved_count": null,
-                        "first_seen": null,
-                        "last_seen": null,
-                        "muted": true,
-                        "muted_comment": null,
-                        "muted_timestamp": "2023-05-11T16:51:20.727818Z",
-                        "muted_user_uuid": "cd3ea8eb-e014-4f62-905d-78a021c768b2",
-                        "query_filter": null
-                    },
-                    {
-                        "account_uuid": "f6f6f836-8bcd-4f5d-bd61-68d303c4f634",
-                        "detection_count": null,
-                        "detection_muted_count": null,
-                        "detection_resolved_count": null,
-                        "first_seen": null,
-                        "last_seen": null,
-                        "muted": true,
-                        "muted_comment": null,
-                        "muted_timestamp": "2023-05-11T16:51:20.969115Z",
-                        "muted_user_uuid": "cd3ea8eb-e014-4f62-905d-78a021c768b2",
-                        "query_filter": null
-                    },
-                    {
-                        "account_uuid": "11a7364e-f020-4ba3-b7c1-ac17006f379b",
-                        "detection_count": null,
-                        "detection_muted_count": null,
-                        "detection_resolved_count": null,
-                        "first_seen": null,
-                        "last_seen": null,
-                        "muted": true,
-                        "muted_comment": null,
-                        "muted_timestamp": "2023-05-11T16:51:20.846743Z",
-                        "muted_user_uuid": "cd3ea8eb-e014-4f62-905d-78a021c768b2",
-                        "query_filter": null
-                    },
-                    {
-                        "account_uuid": "21379211-3c42-45f3-b6a7-33f489d09641",
-                        "detection_count": null,
-                        "detection_muted_count": null,
-                        "detection_resolved_count": null,
-                        "first_seen": null,
-                        "last_seen": null,
-                        "muted": true,
-                        "muted_comment": null,
-                        "muted_timestamp": "2023-05-11T16:51:20.683717Z",
-                        "muted_user_uuid": "cd3ea8eb-e014-4f62-905d-78a021c768b2",
-                        "query_filter": null
-                    },
-                    {
-                        "account_uuid": "6679810e-5a03-4a82-8458-d1c76b3e1942",
-                        "detection_count": null,
-                        "detection_muted_count": null,
-                        "detection_resolved_count": null,
-                        "first_seen": null,
-                        "last_seen": null,
-                        "muted": true,
-                        "muted_comment": null,
-                        "muted_timestamp": "2023-05-11T16:51:20.622813Z",
-                        "muted_user_uuid": "cd3ea8eb-e014-4f62-905d-78a021c768b2",
-                        "query_filter": null
-                    },
-                    {
-                        "account_uuid": "6bc3d2f1-af77-4236-a9db-17dacd06e4d9",
-                        "detection_count": null,
-                        "detection_muted_count": null,
-                        "detection_resolved_count": null,
-                        "first_seen": null,
-                        "last_seen": null,
-                        "muted": true,
-                        "muted_comment": null,
-                        "muted_timestamp": "2023-05-11T16:51:20.789274Z",
-                        "muted_user_uuid": "cd3ea8eb-e014-4f62-905d-78a021c768b2",
-                        "query_filter": null
-                    },
-                    {
-                        "account_uuid": "29266c1a-645b-458e-b4c7-9bb3405d79be",
-                        "detection_count": null,
-                        "detection_muted_count": null,
-                        "detection_resolved_count": null,
-                        "first_seen": null,
-                        "last_seen": null,
-                        "muted": true,
-                        "muted_comment": null,
-                        "muted_timestamp": "2023-05-11T16:51:20.907381Z",
-                        "muted_user_uuid": "cd3ea8eb-e014-4f62-905d-78a021c768b2",
-                        "query_filter": null
-                    }
-                ],
-                "run_account_uuids": [
-                    "9a555e95-e868-4146-a23b-2b88da6a3304"
-                ],
-                "secondary_attack_id": "T1027.005",
-                "severity": "high",
-                "shared_account_uuids": null,
-                "source_excludes": [
-                    "Zscaler"
-                ],
-                "specificity": "tool_implementation",
-                "updated": "2023-05-11T16:51:20.566178Z",
-                "updated_user_uuid": "cd3ea8eb-e014-4f62-905d-78a021c768b2",
-                "uuid": "90403613-164d-4aa5-8370-c4a3924a4533"
             }
         ]
     }
@@ -1590,12 +1221,12 @@ Get a list of detection rules.
 ```
 
 #### Human Readable Output
+Note: Only a subset of the result columns is shown on the table.
 
 >### Results
->|account_uuid|auto_resolution_minutes|category|confidence|created|created_user_uuid|critical_updated|description|device_ip_fields|enabled|indicator_fields|name|primary_attack_id|query_signature|rule_accounts|run_account_uuids|secondary_attack_id|severity|shared_account_uuids|source_excludes|specificity|updated|updated_user_uuid|uuid|
->|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
->| b1f533b5-6360-494a-9f8b-9d90f1ad0207 | 30240 | Attack:Installation | high | 2023-05-11T17:02:09.720180Z | cd3ea8eb-e014-4f62-905d-78a021c768b2 | 2023-05-11T17:02:09.720180Z | Test | src.ip | true | dst.ip,<br/>http:host,<br/>http:user_agent,<br/>http:uri.uri | Test: Cobalt Strike JasperLoader Malleable Stager HTTP Request | T1105 | (<br/>    http:src.internal = true<br/>    OR http:source = "Zscaler"<br/>)<br/>AND uri.path IN ("/501", "/502")<br/>AND uri.query = "dwgvhgc=" | {'account_uuid': '21379211-3c42-45f3-b6a7-33f489d09641', 'query_filter': None, 'muted': True, 'muted_comment': None, 'muted_user_uuid': 'cd3ea8eb-e014-4f62-905d-78a021c768b2', 'muted_timestamp': '2023-05-11T17:02:09.855742Z', 'detection_count': None, 'detection_muted_count': None, 'detection_resolved_count': None, 'first_seen': None, 'last_seen': None},<br/>{'account_uuid': '6bc3d2f1-af77-4236-a9db-17dacd06e4d9', 'query_filter': None, 'muted': True, 'muted_comment': None, 'muted_user_uuid': 'cd3ea8eb-e014-4f62-905d-78a021c768b2', 'muted_timestamp': '2023-05-11T17:02:09.975786Z', 'detection_count': None, 'detection_muted_count': None, 'detection_resolved_count': None, 'first_seen': None, 'last_seen': None},<br/>{'account_uuid': '29266c1a-645b-458e-b4c7-9bb3405d79be', 'query_filter': None, 'muted': True, 'muted_comment': None, 'muted_user_uuid': 'cd3ea8eb-e014-4f62-905d-78a021c768b2', 'muted_timestamp': '2023-05-11T17:02:10.095205Z', 'detection_count': None, 'detection_muted_count': None, 'detection_resolved_count': None, 'first_seen': None, 'last_seen': None},<br/>{'account_uuid': 'f6f6f836-8bcd-4f5d-bd61-68d303c4f634', 'query_filter': None, 'muted': True, 'muted_comment': None, 'muted_user_uuid': 'cd3ea8eb-e014-4f62-905d-78a021c768b2', 'muted_timestamp': '2023-05-11T17:02:10.151422Z', 'detection_count': None, 'detection_muted_count': None, 'detection_resolved_count': None, 'first_seen': None, 'last_seen': None},<br/>{'account_uuid': '11a7364e-f020-4ba3-b7c1-ac17006f379b', 'query_filter': None, 'muted': True, 'muted_comment': None, 'muted_user_uuid': 'cd3ea8eb-e014-4f62-905d-78a021c768b2', 'muted_timestamp': '2023-05-11T17:02:10.040958Z', 'detection_count': None, 'detection_muted_count': None, 'detection_resolved_count': None, 'first_seen': None, 'last_seen': None},<br/>{'account_uuid': '6679810e-5a03-4a82-8458-d1c76b3e1942', 'query_filter': None, 'muted': True, 'muted_comment': None, 'muted_user_uuid': 'cd3ea8eb-e014-4f62-905d-78a021c768b2', 'muted_timestamp': '2023-05-11T17:02:09.782635Z', 'detection_count': None, 'detection_muted_count': None, 'detection_resolved_count': None, 'first_seen': None, 'last_seen': None},<br/>{'account_uuid': '55f39b72-2622-4137-9051-bc2ff364f059', 'query_filter': None, 'muted': True, 'muted_comment': None, 'muted_user_uuid': 'cd3ea8eb-e014-4f62-905d-78a021c768b2', 'muted_timestamp': '2023-05-11T17:02:09.915832Z', 'detection_count': None, 'detection_muted_count': None, 'detection_resolved_count': None, 'first_seen': None, 'last_seen': None} | 9a555e95-e868-4146-a23b-2b88da6a3304 | T1027.005 | high |  | Zscaler | tool_implementation | 2023-05-11T17:02:09.720180Z | cd3ea8eb-e014-4f62-905d-78a021c768b2 | 26874859-0148-4d7f-9a83-145d74830cd9 |
->| b1f533b5-6360-494a-9f8b-9d90f1ad0207 | 30240 | Attack:Installation | high | 2023-05-11T16:51:20.566178Z | cd3ea8eb-e014-4f62-905d-78a021c768b2 | 2023-05-11T16:51:20.566178Z | Test | src.ip | true | dst.ip,<br/>http:host,<br/>http:user_agent,<br/>http:uri.uri | Test: Cobalt Strike GlobeImposter Malleable Stager HTTP Request | T1105 | (<br/>    http:src.internal = true<br/>    OR http:source = "Zscaler"<br/>)<br/>AND uri.path IN ("/JHGCd476334", "/JHGcD476334") | {'account_uuid': '55f39b72-2622-4137-9051-bc2ff364f059', 'query_filter': None, 'muted': True, 'muted_comment': None, 'muted_user_uuid': 'cd3ea8eb-e014-4f62-905d-78a021c768b2', 'muted_timestamp': '2023-05-11T16:51:20.727818Z', 'detection_count': None, 'detection_muted_count': None, 'detection_resolved_count': None, 'first_seen': None, 'last_seen': None},<br/>{'account_uuid': 'f6f6f836-8bcd-4f5d-bd61-68d303c4f634', 'query_filter': None, 'muted': True, 'muted_comment': None, 'muted_user_uuid': 'cd3ea8eb-e014-4f62-905d-78a021c768b2', 'muted_timestamp': '2023-05-11T16:51:20.969115Z', 'detection_count': None, 'detection_muted_count': None, 'detection_resolved_count': None, 'first_seen': None, 'last_seen': None},<br/>{'account_uuid': '11a7364e-f020-4ba3-b7c1-ac17006f379b', 'query_filter': None, 'muted': True, 'muted_comment': None, 'muted_user_uuid': 'cd3ea8eb-e014-4f62-905d-78a021c768b2', 'muted_timestamp': '2023-05-11T16:51:20.846743Z', 'detection_count': None, 'detection_muted_count': None, 'detection_resolved_count': None, 'first_seen': None, 'last_seen': None},<br/>{'account_uuid': '21379211-3c42-45f3-b6a7-33f489d09641', 'query_filter': None, 'muted': True, 'muted_comment': None, 'muted_user_uuid': 'cd3ea8eb-e014-4f62-905d-78a021c768b2', 'muted_timestamp': '2023-05-11T16:51:20.683717Z', 'detection_count': None, 'detection_muted_count': None, 'detection_resolved_count': None, 'first_seen': None, 'last_seen': None},<br/>{'account_uuid': '6679810e-5a03-4a82-8458-d1c76b3e1942', 'query_filter': None, 'muted': True, 'muted_comment': None, 'muted_user_uuid': 'cd3ea8eb-e014-4f62-905d-78a021c768b2', 'muted_timestamp': '2023-05-11T16:51:20.622813Z', 'detection_count': None, 'detection_muted_count': None, 'detection_resolved_count': None, 'first_seen': None, 'last_seen': None},<br/>{'account_uuid': '6bc3d2f1-af77-4236-a9db-17dacd06e4d9', 'query_filter': None, 'muted': True, 'muted_comment': None, 'muted_user_uuid': 'cd3ea8eb-e014-4f62-905d-78a021c768b2', 'muted_timestamp': '2023-05-11T16:51:20.789274Z', 'detection_count': None, 'detection_muted_count': None, 'detection_resolved_count': None, 'first_seen': None, 'last_seen': None},<br/>{'account_uuid': '29266c1a-645b-458e-b4c7-9bb3405d79be', 'query_filter': None, 'muted': True, 'muted_comment': None, 'muted_user_uuid': 'cd3ea8eb-e014-4f62-905d-78a021c768b2', 'muted_timestamp': '2023-05-11T16:51:20.907381Z', 'detection_count': None, 'detection_muted_count': None, 'detection_resolved_count': None, 'first_seen': None, 'last_seen': None} | 9a555e95-e868-4146-a23b-2b88da6a3304 | T1027.005 | high |  | Zscaler | tool_implementation | 2023-05-11T16:51:20.566178Z | cd3ea8eb-e014-4f62-905d-78a021c768b2 | 90403613-164d-4aa5-8370-c4a3924a4533 |
+>|account_uuid|category|confidence|description|device_ip_fields|enabled|indicator_fields|name|primary_attack_id|rule_accounts|run_account_uuids|secondary_attack_id|severity|source_excludes|specificity|
+>|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+>| b1f533b5-6360-494a-9f8b-9d90f1ad0207 | Attack:Installation | high | Test | src.ip | true | dst.ip,<br/>http:host,<br/>http:user_agent,<br/>http:uri.uri | Test: Cobalt Strike JasperLoader Malleable Stager HTTP Request | T1105 | {...}, {...} | T1027.005 | high  | Zscaler | tool_implementation |
 
 
 ### fortindr-cloud-resolve-detection
@@ -1722,117 +1353,6 @@ Get a list of the events that matched on a specific rule.
                 },
                 "timestamp": "2023-05-11T04:28:02.348Z",
                 "uuid": "c0fb758b-efb4-11ed-9f54-0a0561bac71d"
-            },
-            {
-                "customer_id": "gig",
-                "dst": {
-                    "asn": null,
-                    "geo": null,
-                    "internal": true,
-                    "ip": "10.1.12.88",
-                    "ip_bytes": null,
-                    "pkts": null,
-                    "port": 45955
-                },
-                "event_type": "suricata",
-                "flow_id": null,
-                "geo_distance": null,
-                "http": {
-                    "host": {
-                        "domain": "acpananma.com",
-                        "domain_entropy": 2.6235198974609375
-                    },
-                    "hostname": "acpananma.com",
-                    "method": "GET",
-                    "protocol": "HTTP/1.1",
-                    "redirect": null,
-                    "referrer": null,
-                    "response_len": 14540,
-                    "response_mime": "text/html",
-                    "status": 200,
-                    "uri": "/clients3.google.com/generate_204",
-                    "user_agent": "Mozilla/5.0 (Windows NT 6.1) AppleWebKit/587.38",
-                    "xff": null
-                },
-                "intel": [],
-                "payload": null,
-                "proto": "tcp",
-                "sensor_id": "gig7",
-                "sig_category": "Misc activity",
-                "sig_id": 2900330,
-                "sig_name": "ATR INSTALLATION Cobalt Strike Encrypted Beacon x64",
-                "sig_rev": 4,
-                "sig_severity": 3,
-                "source": "Suricata",
-                "src": {
-                    "asn": null,
-                    "geo": null,
-                    "internal": true,
-                    "ip": "10.3.12.88",
-                    "ip_bytes": null,
-                    "pkts": null,
-                    "port": 80
-                },
-                "timestamp": "2023-05-11T04:27:59.190Z",
-                "uuid": "c0fb7581-efb4-11ed-9f54-0a0561bac71d"
-            },
-            {
-                "customer_id": "gig",
-                "dst": {
-                    "asn": null,
-                    "geo": null,
-                    "internal": true,
-                    "ip": "10.1.12.80",
-                    "ip_bytes": null,
-                    "pkts": null,
-                    "port": 45009
-                },
-                "event_type": "suricata",
-                "flow_id": null,
-                "geo_distance": null,
-                "http": {
-                    "host": {
-                        "asn": null,
-                        "geo": null,
-                        "internal": true,
-                        "ip": "10.3.12.80",
-                        "ip_bytes": null,
-                        "pkts": null,
-                        "port": null
-                    },
-                    "hostname": "10.3.12.80",
-                    "method": "GET",
-                    "protocol": "HTTP/1.1",
-                    "redirect": null,
-                    "referrer": null,
-                    "response_len": 7300,
-                    "response_mime": "application/octet-stream",
-                    "status": 200,
-                    "uri": "/9Azi",
-                    "user_agent": "Mozilla/5.0 (Windows NT 6.1; WOW64; Trident/7.0; rv:11.0) like Gecko",
-                    "xff": null
-                },
-                "intel": null,
-                "payload": null,
-                "proto": "tcp",
-                "sensor_id": "gig7",
-                "sig_category": "Misc activity",
-                "sig_id": 2900330,
-                "sig_name": "ATR INSTALLATION Cobalt Strike Encrypted Beacon x64",
-                "sig_rev": 4,
-                "sig_severity": 3,
-                "source": "Suricata",
-                "src": {
-                    "asn": null,
-                    "geo": null,
-                    "internal": true,
-                    "ip": "10.3.12.80",
-                    "ip_bytes": null,
-                    "pkts": null,
-                    "port": 80
-                },
-                "timestamp": "2023-05-11T04:10:13.389Z",
-                "uuid": "f5d5c2cb-efb1-11ed-9b38-020b36c82a21"
             }
         ]
     }
@@ -1844,9 +1364,7 @@ Get a list of the events that matched on a specific rule.
 >### Results
 >|customer_id|dst|event_type|flow_id|geo_distance|http|intel|payload|proto|sensor_id|sig_category|sig_id|sig_name|sig_rev|sig_severity|source|src|timestamp|uuid|
 >|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
->| gig | ip: 10.1.12.89<br/>port: 55585<br/>ip_bytes: null<br/>pkts: null<br/>geo: null<br/>asn: null<br/>internal: true | suricata |  |  | status: 200<br/>protocol: HTTP/1.1<br/>uri: /9Azi<br/>host: {"ip": "10.3.12.89", "port": null, "ip_bytes": null, "pkts": null, "geo": null, "asn": null, "internal": true}<br/>hostname: 10.3.12.89<br/>response_len: 11644<br/>method: GET<br/>response_mime: application/octet-stream<br/>referrer: null<br/>user_agent: Mozilla/5.0 (Windows NT 6.1; WOW64; Trident/7.0; rv:11.0) like Gecko<br/>redirect: null<br/>xff: null |  |  | tcp | gig7 | Misc activity | 2900330 | ATR INSTALLATION Cobalt Strike Encrypted Beacon x64 | 4.0 | 3 | Suricata | ip: 10.3.12.89<br/>port: 80<br/>ip_bytes: null<br/>pkts: null<br/>geo: null<br/>asn: null<br/>internal: true | 2023-05-11T04:28:02.348Z | c0fb758b-efb4-11ed-9f54-0a0561bac71d |
->| gig | ip: 10.1.12.88<br/>port: 45955<br/>ip_bytes: null<br/>pkts: null<br/>geo: null<br/>asn: null<br/>internal: true | suricata |  |  | status: 200<br/>protocol: HTTP/1.1<br/>uri: /clients3.google.com/generate_204<br/>host: {"domain": "acpananma.com", "domain_entropy": 2.6235198974609375}<br/>hostname: acpananma.com<br/>response_len: 14540<br/>method: GET<br/>response_mime: text/html<br/>referrer: null<br/>user_agent: Mozilla/5.0 (Windows NT 6.1) AppleWebKit/587.38<br/>redirect: null<br/>xff: null |  |  | tcp | gig7 | Misc activity | 2900330 | ATR INSTALLATION Cobalt Strike Encrypted Beacon x64 | 4.0 | 3 | Suricata | ip: 10.3.12.88<br/>port: 80<br/>ip_bytes: null<br/>pkts: null<br/>geo: null<br/>asn: null<br/>internal: true | 2023-05-11T04:27:59.190Z | c0fb7581-efb4-11ed-9f54-0a0561bac71d |
->| gig | ip: 10.1.12.80<br/>port: 45009<br/>ip_bytes: null<br/>pkts: null<br/>geo: null<br/>asn: null<br/>internal: true | suricata |  |  | status: 200<br/>protocol: HTTP/1.1<br/>uri: /9Azi<br/>host: {"ip": "10.3.12.80", "port": null, "ip_bytes": null, "pkts": null, "geo": null, "asn": null, "internal": true}<br/>hostname: 10.3.12.80<br/>response_len: 7300<br/>method: GET<br/>response_mime: application/octet-stream<br/>referrer: null<br/>user_agent: Mozilla/5.0 (Windows NT 6.1; WOW64; Trident/7.0; rv:11.0) like Gecko<br/>redirect: null<br/>xff: null |  |  | tcp | gig7 | Misc activity | 2900330 | ATR INSTALLATION Cobalt Strike Encrypted Beacon x64 | 4.0 | 3 | Suricata | ip: 10.3.12.80<br/>port: 80<br/>ip_bytes: null<br/>pkts: null<br/>geo: null<br/>asn: null<br/>internal: true | 2023-05-11T04:10:13.389Z | f5d5c2cb-efb1-11ed-9b38-020b36c82a21 |
+>| gig | ip: 10.1.12.89<br/>port: 55585<br/>ip_bytes: null<br/>pkts: null<br/>geo: null<br/>asn: null<br/>internal: true | suricata |  |  | ... |  |  | tcp | gig7 | Misc activity | 2900330 | ATR INSTALLATION Cobalt Strike Encrypted Beacon x64 | 4.0 | 3 | Suricata | ip: 10.3.12.89<br/>port: 80<br/>ip_bytes: null<br/>pkts: null<br/>geo: null<br/>asn: null<br/>internal: true | 2023-05-11T04:28:02.348Z | c0fb758b-efb4-11ed-9f54-0a0561bac71d |
 
 
 ### fortindr-cloud-create-detection-rule
