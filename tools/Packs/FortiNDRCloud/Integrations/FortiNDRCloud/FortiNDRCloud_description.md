@@ -28,15 +28,12 @@ To install the integration:
 
 #### Commands
 
-The integration includes several commands available to execute within Cortex XSOAR to interact with Fortinet FortiNDR Cloud. Below is a list of all the commands and the following sections detail the arguments for each command.
+The integration includes several commands that can be executed within Cortex XSOAR to interact with Fortinet FortiNDR Cloud. Below is a list of all the commands and the following sections detail the arguments for each command.
 
 | Command | Description |
 | --- | --- |
-| fortindr-cloud-get-events | Perform a search for network events from FortiNDR Cloud |
-| fortindr-cloud-get-history | Get user's query history |
-| fortindr-cloud-get-saved-searches | Get user's saved searches |
 | fortindr-cloud-get-sensors | Get a list of all sensors |
-| fortindr-cloud-get-devices | Get the number of devices |
+| fortindr-cloud-get-devices | Get a list of all devices. |
 | fortindr-cloud-get-tasks | Get a list of all the PCAP tasks |
 | fortindr-cloud-create-task | Create a new PCAP task |
 | fortindr-cloud-get-detections | Get a list of detections |
@@ -44,10 +41,10 @@ The integration includes several commands available to execute within Cortex XSO
 | fortindr-cloud-resolve-detection | Resolve a specific detection |
 | fortindr-cloud-get-detection-rule-events | Get a list of the events that matched on a specific rule |
 | fortindr-cloud-create-detection-rule | Create a new detection rule |
-| fortindr-cloud-get-entity-summary | Get entity summary information about an IP or domain |
+| fortindr-cloud-get-entity-summary | Get summary information about an IP or domain. |
 | fortindr-cloud-get-entity-pdns | Get passive DNS information about an IP or domain |
 | fortindr-cloud-get-entity-dhcp| Get DHCP information about an IP address |
-| fortindr-cloud-get-entity-file | Get entity information about a file |
+| fortindr-cloud-get-entity-file | Get information about a file |
 | fortindr-cloud-get-telemetry-events | Get event telemetry data grouped by time |
 | fortindr-cloud-get-telemetry-network | Get network telemetry data grouped by time |
 | fortindr-cloud-get-telemetry-packetstats | Get network metrics to a given sensor's interfaces |
