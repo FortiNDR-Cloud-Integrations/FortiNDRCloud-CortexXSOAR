@@ -14,7 +14,6 @@ This integration was integrated and tested with version 1.0.0 of Fortinet FortiN
     | **Parameter** | **Required** |
     | --- | --- |
     | API Token | True |
-    | Connect to UAT Environment | False |
     | First fetch timestamp (&lt;number&gt; &lt;time unit&gt;, e.g., 12 hours, 7 days) | True |
     | Include muted detections | False |
     | Include muted devices | False |
