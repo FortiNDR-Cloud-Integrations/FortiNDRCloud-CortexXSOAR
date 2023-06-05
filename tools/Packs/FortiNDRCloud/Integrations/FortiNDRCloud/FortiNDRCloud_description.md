@@ -8,7 +8,7 @@ Fortinet FortiNDR Cloud is a cloud-based network detection and response solution
 
 The Fortinet FortiNDR Cloud Cortex XSOAR integration enables security teams to utilize the features and functionality of the FortiNDR Cloud solution with their existing Cortex XSOAR deployment. The integration leverages FortiNDR Cloud’s fully RESTful APIs to interact with the FortiNDR Cloud backend to introduce specific data sets into Cortex XSOAR. This document contains all the necessary information to configure, install, and use the integration.
 
-For more information about the Cortex XSOAR integration visit the FortiNDR Cloud help documentation here: <https://docs.fortinet.com/product/fortindr-cloud>
+For more information about the Cortex XSOAR integration visit the FortiNDR Cloud help documentation here: <https://docs.fortinet.com/document/fortindr-cloud/latest/cortex-xsoar-integration-guide/690447/overview>
 
 #### Installation
 
