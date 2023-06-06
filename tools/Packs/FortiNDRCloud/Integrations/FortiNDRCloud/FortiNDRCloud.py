@@ -55,7 +55,7 @@ class Client(BaseClient):
         """
         headers = {
             'Authorization': 'IBToken ' + api_key,
-            'User-Agent': 'Cortex_Insight.v3',
+            'User-Agent': 'FortiNDRCloud_Cortex.v1',
             'Content-Type': 'application/json',
         }
 
