@@ -5,17 +5,19 @@
        some management operations like creating scheduled pcap tasks,
        updating detection rules and resolving detections.
 """
+import json
+from datetime import datetime, timedelta
+from typing import Tuple
+
 import demistomock as demisto
 from CommonServerPython import *
 from CommonServerUserPython import *
 
-import json
-from datetime import datetime
-from typing import Tuple
-
 TRAINING_ACC = 'f6f6f836-8bcd-4f5d-bd61-68d303c4f634'
-MAX_DETECTIONS = 100
+MAX_DETECTIONS = 10000
+DEFAULT_DELAY = 10
 DATE_FORMAT = "%Y-%m-%dT%H:%M:%S.%fZ"
+USER_AGENT = 'FortiNDRCloud_Cortex.v1.0.1'
 
 
 class Client(BaseClient):
@@ -55,7 +57,7 @@ class Client(BaseClient):
         """
         headers = {
             'Authorization': 'IBToken ' + api_key,
-            'User-Agent': 'FortiNDRCloud_Cortex.v1',
+            'User-Agent': USER_AGENT,
             'Content-Type': 'application/json',
         }
 
@@ -226,7 +228,6 @@ class DetectionClient(Client):
             :rtype Dict[str, Any]
         """
         demisto.debug('DetectionClient.getDetections method has been called.')
-
         return self._http_request(
             method='GET',
             url_suffix='/detections' + args
@@ -242,6 +243,21 @@ class DetectionClient(Client):
         return self._http_request(
             method='GET',
             url_suffix='/rules' + args
+        )
+
+    def getDetectionEvents(self, args: str) -> Dict[str, Any]:
+        """ Calls the GET /events endpoint to retrieve
+        the detection's events
+            :param str args: some filters to be passed in the request
+            :return JSON response from /events endpoint
+            :rtype Dict[str, Any]
+        """
+        demisto.debug(
+            'DetectionClient.getDetectionEvents method has been called.')
+
+        return self._http_request(
+            method='GET',
+            url_suffix="/events" + args
         )
 
     def getDetectionRuleEvents(self, rule_uuid: str,
@@ -410,15 +426,15 @@ def formatEvents(r_json):
     return newData
 
 
-def getFirstFetch(first_fetch_str) -> datetime:
+def getStartDate(first_fetch_str) -> datetime:
 
     if not first_fetch_str or not first_fetch_str.strip():
         first_fetch_str = "7 days"
 
-    first_fetch_date = dateparser.parse(first_fetch_str)
-    assert first_fetch_date is not None, f'could not parse {first_fetch_str}'
+    start_date = dateparser.parse(first_fetch_str, settings={'TIMEZONE': 'UTC'})
+    assert start_date is not None, f'could not parse {first_fetch_str}'
 
-    return first_fetch_date
+    return start_date
 
 
 def mapSeverity(severity) -> int:
@@ -433,27 +449,22 @@ def mapSeverity(severity) -> int:
             return 0
 
 
-def getIncidents(result, last_fetch) -> Tuple[Dict[str, int], List[dict[str, Any]]]:
+def getIncidents(result, end_date) -> Tuple[Dict[str, int], List[dict[str, Any]]]:
     # Initialize an empty list of incidents to return
     # Each incident is a dict with a string as a key
     incidents: List[Dict[str, Any]] = []
 
-    last_incident_time = last_fetch
-    
-    results = result.outputs if isinstance(result, CommandResults) else []
-    
-    for detection in results:
-        incident_time = datetime.strptime(detection['created'], DATE_FORMAT)
+    detections = result.outputs if result and isinstance(result, CommandResults) else []
 
-        # Check if inciden has been reported before
-        if last_fetch >= incident_time:
-            continue
+    if detections is None or not isinstance(detections, list):
+        detections = []
 
+    demisto.info(f'Creating incidents from {len(detections)} detections')
+    for detection in detections:
         severity = mapSeverity(detection['rule_severity'])
-
         incident = {
             'name': 'Fortinet FortiNDR Cloud - ' + detection['rule_name'],
-            'occurred': detection['first_seen'],
+            'occurred': detection['created'],
             'severity': severity,
             'details': detection['rule_description'],
             'dbotMirrorId': detection['uuid'],
@@ -468,27 +479,25 @@ def getIncidents(result, last_fetch) -> Tuple[Dict[str, int], List[dict[str, Any
 
         incidents.append(incident)
 
-        if last_incident_time < incident_time:
-            last_incident_time = incident_time
+    end_date_str = end_date.strftime(DATE_FORMAT)
+    next_run = {'last_fetch': end_date_str}
 
-    demisto.debug(
-        f'Last incident time: {last_incident_time.strftime(DATE_FORMAT)}')
-
-    next_run = {'last_fetch': last_incident_time.strftime(DATE_FORMAT)}
-
-    demisto.debug(f'fetched {len(incidents)} incidents')
+    demisto.info(f'fetched {len(incidents)} incidents')
+    demisto.debug(f'Last run set to: {end_date_str}')
 
     return next_run, incidents
-
 
 # Commands Methods
 
 
-def commandTestModule(sensorClient: SensorClient):
+def commandTestModule(detectionClient: DetectionClient):
     """ Test that the module is up and running.
     """
+    demisto.info("Testing connection to FortiNDR Cloud Services")
+
     try:
-        commandGetSensors(sensorClient, {})
+        commandGetDetections(detectionClient=detectionClient, args={'limit': 1})
+        demisto.info("Connection successfully verified.")
         return 'ok'
     except Exception as e:
         demisto.error(f'Module test failed: {e}')
@@ -501,7 +510,7 @@ def commandTestModule(sensorClient: SensorClient):
 def commandGetSensors(sensorClient: SensorClient, args):
     """ Get a list of all sensors.
     """
-    demisto.debug('CommandGetSensors has been called.')
+    demisto.info('CommandGetSensors has been called.')
 
     result: Dict[str, Any] = sensorClient.getSensors(encodeArgsToURL(args, ['include']))
 
@@ -517,6 +526,8 @@ def commandGetSensors(sensorClient: SensorClient, args):
     if not result.get(key):
         return "We could not find any result for Get Sensors."
 
+    demisto.info('CommandGetSensors successfully completed.')
+
     return CommandResults(
         outputs_prefix=prefix,
         outputs_key_field=key,
@@ -527,7 +538,7 @@ def commandGetSensors(sensorClient: SensorClient, args):
 def commandGetDevices(sensorClient: SensorClient, args):
     """ Get the number of devices.
     """
-    demisto.debug('CommandGetDevices has been called.')
+    demisto.info('CommandGetDevices has been called.')
 
     result: Dict[str, Any] = sensorClient.getDevices(encodeArgsToURL(args))
 
@@ -543,6 +554,8 @@ def commandGetDevices(sensorClient: SensorClient, args):
     if not result.get(key):
         return "We could not find any result for Get Devices."
 
+    demisto.info('CommandGetDevices successfully completed.')
+
     return CommandResults(
         outputs_prefix=prefix,
         outputs_key_field=key,
@@ -553,7 +566,7 @@ def commandGetDevices(sensorClient: SensorClient, args):
 def commandGetTasks(sensorClient: SensorClient, args):
     """ Get a list of all the PCAP tasks.
     """
-    demisto.debug('commandGetTasks has been called.')
+    demisto.info('commandGetTasks has been called.')
 
     taskid: str = args['task_uuid'] if 'task_uuid' in args else ''
     result: Dict[str, Any] = sensorClient.getTasks(taskid)
@@ -570,6 +583,8 @@ def commandGetTasks(sensorClient: SensorClient, args):
     if not result.get(key):
         return "We could not find any result for Get Tasks."
 
+    demisto.info('CommandGetTasks successfully completed.')
+
     return CommandResults(
         outputs_prefix=prefix,
         outputs_key_field=key,
@@ -580,7 +595,7 @@ def commandGetTasks(sensorClient: SensorClient, args):
 def commandCreateTask(sensorClient: SensorClient, args):
     """ Create a new PCAP task.
     """
-    demisto.debug('commandCreateTask has been called.')
+    demisto.info('commandCreateTask has been called.')
 
     sensor_ids = []
     if 'sensor_ids' in args:
@@ -591,6 +606,9 @@ def commandCreateTask(sensorClient: SensorClient, args):
 
     result: Dict[str, Any] = sensorClient.createTasks(args)
     if 'pcaptask' in result:
+
+        demisto.info('CommandCreateTask successfully completed.')
+
         return CommandResults(
             readable_output='Task created successfully'
         )
@@ -601,7 +619,7 @@ def commandCreateTask(sensorClient: SensorClient, args):
 def commandGetEventsTelemetry(sensorClient: SensorClient, args):
     """ Get event telemetry data grouped by time
     """
-    demisto.debug('commandGetEventsTelemetry has been called.')
+    demisto.info('commandGetEventsTelemetry has been called.')
 
     result: Dict[str, Any] = sensorClient.getTelemetry('events', args)
 
@@ -617,6 +635,8 @@ def commandGetEventsTelemetry(sensorClient: SensorClient, args):
     if not result.get(key):
         return "We could not find any result for Get Event Telemetry."
 
+    demisto.info('commandGetEventsTelemetry successfully completed.')
+
     return CommandResults(
         outputs_prefix=prefix,
         outputs_key_field=key,
@@ -627,7 +647,7 @@ def commandGetEventsTelemetry(sensorClient: SensorClient, args):
 def commandGetNetworkTelemetry(sensorClient: SensorClient, args):
     """ Get network telemetry data grouped by time
     """
-    demisto.debug('commandGetNetworkTelemetry has been called.')
+    demisto.info('commandGetNetworkTelemetry has been called.')
 
     result: Dict[str, Any] = sensorClient.getTelemetry('network_usage', args)
 
@@ -643,6 +663,8 @@ def commandGetNetworkTelemetry(sensorClient: SensorClient, args):
     if not result.get(key):
         return "We could not find any result for Get Network Telemetry."
 
+    demisto.info('commandGetNetworkTelemetry successfully completed.')
+
     return CommandResults(
         outputs_prefix=prefix,
         outputs_key_field=key,
@@ -653,7 +675,7 @@ def commandGetNetworkTelemetry(sensorClient: SensorClient, args):
 def commandGetPacketstatsTelemetry(sensorClient: SensorClient, args):
     """ Get packetstats telemetry data grouped by time.
     """
-    demisto.debug('commandGetPacketstatsTelemetry has been called.')
+    demisto.info('commandGetPacketstatsTelemetry has been called.')
 
     result: Dict[str, Any] = sensorClient.getTelemetry('packetstats', args)
 
@@ -669,6 +691,8 @@ def commandGetPacketstatsTelemetry(sensorClient: SensorClient, args):
     if not result.get(key):
         return "We could not find any result for Get Packetstats Telemetry."
 
+    demisto.info('commandGetPacketstatsTelemetry successfully completed.')
+
     return CommandResults(
         outputs_prefix=prefix,
         outputs_key_field=key,
@@ -682,7 +706,7 @@ def commandGetPacketstatsTelemetry(sensorClient: SensorClient, args):
 def commandGetEntitySummary(entityClient: EntityClient, entity: str):
     """ Get entity summary information about an IP or domain.
     """
-    demisto.debug('commandGetEntitySummary has been called.')
+    demisto.info('commandGetEntitySummary has been called.')
 
     result: Dict[str, Any] = entityClient.getEntitySummary(entity)
 
@@ -698,6 +722,8 @@ def commandGetEntitySummary(entityClient: EntityClient, entity: str):
     if not result.get(key):
         return "We could not find any result for Get Entity Summary."
 
+    demisto.info('commandGetEntitySummary successfully completed.')
+
     return CommandResults(
         outputs_prefix=prefix,
         outputs_key_field=key,
@@ -708,7 +734,7 @@ def commandGetEntitySummary(entityClient: EntityClient, entity: str):
 def commandGetEntityPdns(entityClient: EntityClient, args: Dict[str, Any]):
     """ Get passive DNS information about an IP or domain.
     """
-    demisto.debug('commandGetEntityPdns has been called.')
+    demisto.info('commandGetEntityPdns has been called.')
 
     entity = args.pop('entity')
     result: Dict[str, Any] = entityClient.getEntityPdns(entity, encodeArgsToURL(args, ['record_type', 'source', 'account_uuid']))
@@ -728,6 +754,8 @@ def commandGetEntityPdns(entityClient: EntityClient, args: Dict[str, Any]):
     if not result.get(key):
         return "We could not find any result for Get Entity PDNS."
 
+    demisto.info('commandGetEntityPdns successfully completed.')
+
     return CommandResults(
         outputs_prefix=prefix,
         outputs_key_field=key,
@@ -738,7 +766,7 @@ def commandGetEntityPdns(entityClient: EntityClient, args: Dict[str, Any]):
 def commandGetEntityDhcp(entityClient: EntityClient, args: Dict[str, Any]):
     """ Get DHCP information about an IP address.
     """
-    demisto.debug('commandGetEntityDhcp has been called.')
+    demisto.info('commandGetEntityDhcp has been called.')
 
     entity = args.pop('entity')
     result: Dict[str, Any] = entityClient.getEntityDhcp(entity, encodeArgsToURL(args, ['account_uuid']))
@@ -758,6 +786,8 @@ def commandGetEntityDhcp(entityClient: EntityClient, args: Dict[str, Any]):
     if not result.get(key):
         return "We could not find any result for Get Entity DHCP."
 
+    demisto.info('commandGetEntityDhcp successfully completed.')
+
     return CommandResults(
         outputs_prefix=prefix,
         outputs_key_field=key,
@@ -768,7 +798,7 @@ def commandGetEntityDhcp(entityClient: EntityClient, args: Dict[str, Any]):
 def commandGetEntityFile(entityClient: EntityClient, hash: str):
     """ Get entity information about a file
     """
-    demisto.debug('commandGetEntityFile has been called.')
+    demisto.info('commandGetEntityFile has been called.')
 
     result: Dict[str, Any] = entityClient.getEntityFile(hash)
 
@@ -784,6 +814,8 @@ def commandGetEntityFile(entityClient: EntityClient, hash: str):
     if not result.get(key):
         return "We could not find any result for Get Entity File."
 
+    demisto.info('commandGetEntityFile successfully completed.')
+
     return CommandResults(
         outputs_prefix=prefix,
         outputs_key_field=key,
@@ -795,33 +827,48 @@ def commandGetEntityFile(entityClient: EntityClient, hash: str):
 
 
 def commandFetchIncidents(detectionClient: DetectionClient, account_uuid, params, last_run) -> Tuple[Dict[str, int], List[dict]]:
-    demisto.debug('commandFetchIncidents has been called.')
+    demisto.info('Fetching incidents.')
 
-    demisto.debug(f'last_run retrieved: {last_run}')
-
-    first_fetch_time = getFirstFetch(params.get('first_fetch'))
+    start_date = getStartDate(params.get('first_fetch'))
 
     last_fetch = last_run.get('last_fetch')
+    if last_fetch is not None:
+        demisto.debug(f'Incidents were last fetched on: {last_fetch}')
+        start_date = datetime.strptime(last_fetch, DATE_FORMAT)
 
-    if last_fetch is None:
-        last_fetch = first_fetch_time
-    else:
-        last_fetch = datetime.strptime(last_fetch, DATE_FORMAT)
-
-    max_results = arg_to_number(
-        arg=params.get('max_fetch'),
-        arg_name='max_fetch',
+    delay = arg_to_number(
+        arg=params.get('delay'),
+        arg_name='delay',
         required=False
     )
+    if not delay or delay < 0 or delay > DEFAULT_DELAY:
+        delay = DEFAULT_DELAY
 
-    if not max_results or max_results > MAX_DETECTIONS:
-        max_results = MAX_DETECTIONS
+    # Get the utc datetime for now
+    now = datetime.utcnow()
+    end_date = now - timedelta(minutes=delay)
 
-    args = {'created_or_shared_start_date': last_fetch.strftime(DATE_FORMAT),
+    if end_date < start_date:
+        demisto.info(f'The time window [{start_date} to {end_date}] is not valid.')
+        demisto.info('Waiting until next iteration.')
+    else:
+        start_date_str = datetime.strftime(start_date, DATE_FORMAT)
+        end_date_str = datetime.strftime(end_date, DATE_FORMAT)
+        demisto.info(f'Fetching detections between {start_date_str} and {end_date_str}')
+        args = {
+            'created_or_shared_start_date': start_date_str,
+            'created_or_shared_end_date': end_date_str,
             'include': 'rules,indicators',
-            'sort_by': 'first_seen',
+            'sort_by': 'device_ip',
             'sort_order': 'asc',
-            'limit': max_results}
+            'limit': MAX_DETECTIONS,
+            'offset': 0,
+            'inc_polling': True,
+        }
+
+    status = params.get('status', 'active')
+    if status != 'all':
+        args['status'] = status
 
     if not params.get('muted', False):
         args['muted'] = False
@@ -835,9 +882,14 @@ def commandFetchIncidents(detectionClient: DetectionClient, account_uuid, params
     if account_uuid:
         args['account_uuid'] = account_uuid
 
+    logged_args = args.copy()
+    if 'account_uuid' in logged_args:
+        logged_args['account_uuid'] = '************'
+
+    demisto.debug(f'Arguments being used for fetching detections: \n {logged_args} ')
     result = commandGetDetections(detectionClient, args)
 
-    return getIncidents(result, last_fetch)
+    return getIncidents(result, end_date)
 
 
 def addDetectionRules(result):
@@ -845,11 +897,11 @@ def addDetectionRules(result):
     """
     # Create a dictionary with the rules using its uuid as key
     rules = {}
-    for rule in result.get('rules'):
+    for rule in result.get('rules', []):
         rules[rule['uuid']] = rule
 
     # Find the detection's rule in the dictionary and update the detection
-    for detection in result.get('detections'):
+    for detection in result.get('detections', []):
         rule = rules[detection['rule_uuid']]
 
         detection.update({'rule_name': rule['name']})
@@ -862,25 +914,33 @@ def addDetectionRules(result):
     return result
 
 
-def getDetectionsInc(detectionClient: DetectionClient, result, args):
+def getDetectionsInc(detectionClient: DetectionClient, result: Dict[str, Any], args) -> Dict[str, Any]:
     """ Get the remaining detections if there are more than
     the maximum allowed in a page.
     """
-    total_detections = result.get('total_count')
-    offset = MAX_DETECTIONS
+    if result is None:
+        result = {
+            'total_count': 0,
+            'detections': [],
+            'rules': []
+        }
 
-    while offset < total_detections:
-        # Get the next piece of detections and add them to the result
-        args['offset'] = offset
-        nextPiece: Dict[str, Any] = detectionClient.getDetections(
-            encodeArgsToURL(args))
-        result.get('detections').extend(nextPiece.get('detections'))
+    next_piece: Dict[str, Any] = result
+    while next_piece and next_piece['detections']:
+        offset = args.get('offset', 0) + MAX_DETECTIONS
+        args.update({"offset": offset})
+        demisto.info(f'Retrieving Detections with offset = {offset}.')
+        next_piece = detectionClient.getDetections(
+            encodeArgsToURL(args, ['include']))
 
-        # Include rules if they need to be included
-        if 'include' in args and args['include'] == 'rules':
-            result.get('rules').extend(nextPiece.get('rules'))
+        count = 0
+        if (next_piece is not None):
+            count = len(next_piece.get('detections', []))
+            result.get('detections', []).extend(next_piece.get('detections', []))
+            result.get('rules', []).extend(next_piece.get('rules', []))
+            result['total_count'] += next_piece['total_count']
 
-        offset += MAX_DETECTIONS
+        demisto.debug(f'{count} detections retrieved')
 
     return result
 
@@ -888,27 +948,40 @@ def getDetectionsInc(detectionClient: DetectionClient, result, args):
 def commandGetDetections(detectionClient: DetectionClient, args):
     """ Get a list of detections.
     """
-    demisto.debug('commandGetDetections has been called.')
+    demisto.info('commandGetDetections has been called.')
+    inc_polling = args.pop('inc_polling', False)
 
+    limit: int = int(args.pop('limit', MAX_DETECTIONS))
+    if limit < 0 or limit > MAX_DETECTIONS:
+        limit = MAX_DETECTIONS
+    args.update({"limit": limit})
+
+    offset = 0
+    demisto.info(f'Retrieving Detections with offset = {offset}.')
     result: Dict[str, Any] = detectionClient.getDetections(
-        encodeArgsToURL(args, ['include', 'status', 'rule_uuid'])
-    )
+        encodeArgsToURL(args, ['include']))
+    demisto.debug(f"{len(result['detections'])} detections retrieved.")
 
     # if there are more detections to be retrieved, pull the
     # remaining detections incrementally
-    if 'total_count' in result and int(result['total_count']) > MAX_DETECTIONS:
-        if 'limit' not in args or int(args['limit']) > MAX_DETECTIONS:
-            result = getDetectionsInc(detectionClient, result, args)
+
+    if inc_polling:
+        result = getDetectionsInc(detectionClient=detectionClient, result=result, args=args)
 
     # filter out training detections
+    demisto.debug('Filtering detections for training account.')
     result['detections'] = list(
         filter(lambda detection: (detection['account_uuid'] != TRAINING_ACC),
                result['detections'])
     )
+    result['total_count'] = len(result['detections'])
 
     # Include the rules if they need to be included
+    demisto.debug("Adding rule's information to the detections.")
     if 'include' in args and 'rules' in args['include'].split(','):
         result = addDetectionRules(result)
+
+    demisto.info(f"{len(result['detections'])} detections successfully retrieved.")
 
     prefix = 'FortiNDRCloud.Detections'
     key = 'detections'
@@ -922,6 +995,47 @@ def commandGetDetections(detectionClient: DetectionClient, args):
     if not result.get(key):
         return "We could not find any result for Get Detections."
 
+    demisto.info('commandGetDetections successfully completed.')
+
+    return CommandResults(
+        outputs_prefix=prefix,
+        outputs_key_field=key,
+        outputs=result.get(key)
+    )
+
+
+def commandGetDetectionEvents(detectionClient: DetectionClient, args):
+    """ Get a list of the events associated to a specific detection.
+    """
+    demisto.info('CommandGetDetectionEvents has been called.')
+
+    result: Dict[str, Any] = detectionClient.getDetectionEvents(encodeArgsToURL(args))
+
+    events = []
+    detection_uuid = args.get('detection_uuid', '')
+    for event in result.get('events', []):
+        rule_uuid = event.get('rule_uuid', '')
+        event = event.get('event', {})
+        if event:
+            event['detection_uuid'] = detection_uuid
+            event['rule_uuid'] = rule_uuid
+            events.append(event)
+    result['events'] = events
+
+    prefix = 'FortiNDRCloud.Detections'
+    key = 'events'
+
+    if not result:
+        raise Exception(f'We receive an invalid response from the server ({result})')
+
+    if key not in result:
+        raise Exception(f'We receive an invalid response from the server (The response does not contains the key: {key})')
+
+    if not result.get(key):
+        return "We could not find any result for Get Detections Events."
+
+    demisto.info('commandGetDetectionEvents successfully completed.')
+
     return CommandResults(
         outputs_prefix=prefix,
         outputs_key_field=key,
@@ -932,7 +1046,7 @@ def commandGetDetections(detectionClient: DetectionClient, args):
 def commandGetDetectionRules(detectionClient: DetectionClient, args):
     """ Get a list of detection rules.
     """
-    demisto.debug('CommandGetDetectionRules has been called.')
+    demisto.info('CommandGetDetectionRules has been called.')
 
     result: Dict[str, Any] = detectionClient.getDetectionRules(
         encodeArgsToURL(args, ['confidence', 'severity', 'category'])
@@ -950,6 +1064,8 @@ def commandGetDetectionRules(detectionClient: DetectionClient, args):
     if not result.get(key):
         return "We could not find any result for Get Detection Rules."
 
+    demisto.info('commandGetDetectionRules successfully completed.')
+
     return CommandResults(
         outputs_prefix=prefix,
         outputs_key_field=key,
@@ -960,7 +1076,7 @@ def commandGetDetectionRules(detectionClient: DetectionClient, args):
 def commandGetDetectionRuleEvents(detectionClient: DetectionClient, args):
     """ Get a list of the events that matched on a specific rule.
     """
-    demisto.debug('CommandGetDetectionRuleEvents has been called.')
+    demisto.info('CommandGetDetectionRuleEvents has been called.')
 
     rule_uuid: str = args['rule_uuid']
     args.pop('rule_uuid')
@@ -981,6 +1097,8 @@ def commandGetDetectionRuleEvents(detectionClient: DetectionClient, args):
     if not result.get(key):
         return "We could not find any result for Get Detections Rule Events."
 
+    demisto.info('commandGetDetectionRuleEvents successfully completed.')
+
     return CommandResults(
         outputs_prefix=prefix,
         outputs_key_field=key,
@@ -991,7 +1109,7 @@ def commandGetDetectionRuleEvents(detectionClient: DetectionClient, args):
 def commandCreateDetectionRule(detectionClient: DetectionClient, args):
     """ Create a new detection rule.
     """
-    demisto.debug('commandCreateDetectionRule has been called.')
+    demisto.info('commandCreateDetectionRule has been called.')
 
     run_accts = [args['run_account_uuids']]
     dev_ip_fields = [args['device_ip_fields']]
@@ -1004,6 +1122,9 @@ def commandCreateDetectionRule(detectionClient: DetectionClient, args):
 
     result: Dict[str, Any] = detectionClient.createDetectionRule(args)
     if 'rule' in result:
+
+        demisto.info('commandCreateDetectionRule successfully completed.')
+
         return CommandResults(
             readable_output='Rule created successfully'
         )
@@ -1014,7 +1135,7 @@ def commandCreateDetectionRule(detectionClient: DetectionClient, args):
 def commandResolveDetection(detectionClient: DetectionClient, args):
     """ Resolve a specific detection.
     """
-    demisto.debug('commandResolveDetection has been called.')
+    demisto.info('commandResolveDetection has been called.')
 
     if 'detection_uuid' not in args:
         raise Exception("Detection cannot be resolved: No detection_uuid has been provided.")
@@ -1026,6 +1147,9 @@ def commandResolveDetection(detectionClient: DetectionClient, args):
     result = detectionClient.resolveDetection(detection_uuid, args)
 
     if not result or not result.content:
+
+        demisto.info('commandResolveDetection successfully completed.')
+
         return CommandResults(
             readable_output='Detection resolved successfully'
         )
@@ -1038,16 +1162,19 @@ def main():
     command = demisto.command()
     params = demisto.params()
 
-    demisto.debug(f'Command being called is {command}')
+    demisto.info(f'Starting to handle command {command}')
+
     logged_params = params.copy()
-    logged_params['api_key']= "*********"
+    if 'api_key' in logged_params:
+        logged_params['api_key'] = "*********"
+
     demisto.debug(f'Params being passed is {logged_params}')
 
     args: Dict[str, Any] = demisto.args()
 
     # initialize common args
     api_key = params.get('api_key')
-    testing = params.get('testing')
+    testing = params.get('testing', False)
     account_uuid = params.get('account_uuid')
 
     # attempt command execution
@@ -1061,7 +1188,7 @@ def main():
         )
 
         if command == 'test-module':
-            return_results(commandTestModule(sensorClient))
+            return_results(commandTestModule(detectionClient=detectionClient))
 
         elif command == 'fetch-incidents':
             next_run, incidents = commandFetchIncidents(
@@ -1071,9 +1198,11 @@ def main():
                 demisto.getLastRun()
             )
             # saves next_run for the time fetch-incidents is invoked
+            demisto.info('Saving checkpoint in Cortex')
             demisto.setLastRun(next_run)
             # fetch-incidents calls ``demisto.incidents()`` to provide the list
             # of incidents to create
+            demisto.info('Sending incidents to Cortex')
             demisto.incidents(incidents)
 
         elif command == 'fortindr-cloud-get-sensors':
@@ -1111,6 +1240,11 @@ def main():
 
         elif command == 'fortindr-cloud-get-detections':
             return_results(commandGetDetections(detectionClient, args))
+
+        elif command == 'fortindr-cloud-get-detection-events':
+            return_results(
+                commandGetDetectionEvents(detectionClient, args)
+            )
 
         elif command == 'fortindr-cloud-get-detection-rules':
             return_results(commandGetDetectionRules(detectionClient, args))
