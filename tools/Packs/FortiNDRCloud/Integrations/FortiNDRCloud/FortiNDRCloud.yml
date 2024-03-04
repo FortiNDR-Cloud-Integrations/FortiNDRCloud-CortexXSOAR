@@ -10,15 +10,19 @@ configuration:
   name: api_key
   type: 4
   required: true
-#- display: Connect to UAT Environment
-#  name: testing
-#  defaultvalue: 'false'
-#  type: 8
 - display: First fetch timestamp (<number> <time unit>, e.g., 12 hours, 7 days)
   name: first_fetch
   type: 0
   required: true
   defaultvalue: 7 days
+- display: Detection's status to fetch
+  name: status
+  options:
+  - active
+  - resolved
+  - all
+  defaultvalue: 'active'
+  type: 15
 - display: Include muted detections
   name: muted
   defaultvalue: 'false'
@@ -49,9 +53,14 @@ configuration:
   defaultvalue: '50'
   type: 0
   required: false
+- display: Delay to allow detection processing before polling
+  name: delay
+  defaultvalue: '10'
+  type: 0
+  required: false
 - display: Incidents Fetch Interval
   name: incidentFetchInterval
-  defaultvalue: '1'
+  defaultvalue: '5'
   type: 19
   required: false
 script:
@@ -779,6 +788,44 @@ script:
     - name: resolution_comment
       description: Optional comment for the resolution.
     description: Resolve a specific detection.
+  - name: fortindr-cloud-get-detection-events
+    arguments:
+    - name: detection_uuid
+      required: true
+      description: Detection UUID to get events for
+    - name: offset
+      description: The number of records to skip past
+    - name: limit
+      description: 'The number of records to return, default: 100, max: 1000.'
+    outputs:
+    - contextPath: FortiNDRCloud.Events.event_type
+      description: Event type
+      type: string
+    - contextPath: FortiNDRCloud.Events.uuid
+      description: Unique ID for the event
+      type: string
+    - contextPath: FortiNDRCloud.Events.customer_id
+      description: ID code of the customer account
+      type: string
+    - contextPath: FortiNDRCloud.Events.sensor_id
+      description: ID code of the sensor
+      type: string
+    - contextPath: FortiNDRCloud.Events.timestamp
+      description: Date the event occurred
+      type: date
+    - contextPath: FortiNDRCloud.Events.flow_id
+      description: Unique ID of the flow record
+      type: string
+    - contextPath: FortiNDRCloud.Events.src
+      description: Source's information
+      type: string
+    - contextPath: FortiNDRCloud.Events.dst
+      description: Destination's information'
+      type: string
+    - contextPath: FortiNDRCloud.Events.host_domain
+      description: Domain name
+      type: string
+    description: Get a list of the events that matched on a specific detection.
   - name: fortindr-cloud-get-detection-rule-events
     arguments:
     - name: rule_uuid
@@ -908,7 +955,7 @@ script:
       description: List of event fields to check for impacted devices
     description: Create a new detection rule.
 
-  dockerimage: demisto/python3:3.10.11.61265
+  dockerimage: demisto/python3:3.10.13.87159
   isfetch: true
   runonce: false
   subtype: python3
