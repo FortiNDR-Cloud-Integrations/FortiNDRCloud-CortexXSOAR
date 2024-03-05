@@ -1213,6 +1213,8 @@ def main():
             # of incidents to create
             demisto.info('Sending incidents to Cortex')
             demisto.incidents(incidents)
+            
+            demisto.info('Incidents successfully sent.')
 
         elif command == 'fortindr-cloud-get-sensors':
             return_results(commandGetSensors(sensorClient, args))
