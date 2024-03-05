@@ -1179,13 +1179,22 @@ def main():
 
     # attempt command execution
     try:
-        entityClient: EntityClient = Client.getClient('Entity', api_key, testing)
+        entityClient: EntityClient
+        sensorClient: SensorClient
+        detectionClient: DetectionClient
 
-        sensorClient: SensorClient = Client.getClient('Sensors', api_key, testing)
-
-        detectionClient: DetectionClient = Client.getClient(
+        eClient = Client.getClient('Entity', api_key, testing)
+        sClient = Client.getClient('Sensors', api_key, testing)
+        dClient = Client.getClient(
             'Detections', api_key, testing
         )
+
+        if isinstance(eClient, EntityClient):
+            entityClient = eClient
+        if isinstance(sClient, SensorClient):
+            sensorClient = sClient
+        if isinstance(dClient, DetectionClient):
+            detectionClient = dClient
 
         if command == 'test-module':
             return_results(commandTestModule(detectionClient=detectionClient))
@@ -1277,7 +1286,7 @@ def main():
     # catch exceptions
     except Exception as e:
         demisto.error(traceback.format_exc())
-        return_error(f'Failed to execute {demisto.command()} command.\nError:\n{str(e)}', e)
+        return_error(f'Failed to execute {demisto.command()} command.\nError:\n{str(e)}', str(e))
 
 
 if __name__ in ('__main__', '__builtin__', 'builtins'):
