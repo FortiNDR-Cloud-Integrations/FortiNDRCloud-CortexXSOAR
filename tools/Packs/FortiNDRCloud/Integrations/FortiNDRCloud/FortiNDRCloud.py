@@ -9,17 +9,14 @@
 import json
 
 from fnc import FncClient, FncClientLogger
-from fnc.api import EndpointKey, ApiContext, FncApiClient, FncRestClient
+from fnc.api import ApiContext, EndpointKey, FncApiClient, FncRestClient
 from fnc.errors import ErrorMessages, ErrorType, FncClientError
 
 import demistomock as demisto
 from CommonServerPython import *
 from CommonServerUserPython import *
 
-MAX_DETECTIONS = 10000
-DEFAULT_DELAY = 10
-DATE_FORMAT = "%Y-%m-%dT%H:%M:%S.%fZ"
-USER_AGENT = "FortiNDRCloud_Cortex.v1.1.0"
+USER_AGENT = "Fnc_Cortex.v1.1.0"
 HISTORY_LIMIT = 500
 
 
@@ -27,6 +24,8 @@ class FncCortexRestClient(FncRestClient):
     client: BaseClient
 
     def __init__(self):
+        # The base_url value is ignored. The full_url argument is used instead. Rather than construct the url
+        # using the base url, we use the full url received from the client library.
         self.client = BaseClient(base_url="ToBeIgnored")
 
     def validate_request(self, req_args: dict):
@@ -107,6 +106,53 @@ def flush_logs(logger: FncCortexLoggerCollector):
     logger.clear_logs()
 
 
+def _create_cortex_incidents(detections):
+    incidents: List[Dict[str, Any]] = []
+
+    if len(detections) > 0:
+        demisto.info(f"Creating incidents for {len(detections)} detections.")
+    else:
+        demisto.info("No detections was retrieved.")
+
+    for detection in detections:
+        severity = mapSeverity(detection["rule_severity"])
+        incident = {
+            "name": "Fortinet FortiNDR Cloud - " + detection["rule_name"],
+            "occurred": detection["created"],
+            "severity": severity,
+            "details": detection["rule_description"],
+            "dbotMirrorId": detection["uuid"],
+            "rawJSON": json.dumps(detection),
+            "type": "Fortinet FortiNDR Cloud Detection",
+            "CustomFields": {  # Map specific XSOAR Custom Fields
+                "fortindrcloudcategory": detection["rule_category"],
+                "fortindrcloudconfidence": detection["rule_confidence"],
+                "fortindrcloudstatus": detection["status"],
+            },
+        }
+
+        incidents.append(incident)
+
+    return incidents
+
+
+def _split_multivalue_args(args: dict, multiple_values: list = []) -> dict:
+    """Update the arguments contained in the multiple_values list
+    from a comma separated string into a list of string.
+    :parm Dict[str, Any] args: Arguments to be processed
+    :parm List[str] multiple_values: Arguments with multiple values
+    :return the processed list of arguments
+    :rtype str
+    """
+    for arg in multiple_values:
+        if arg in args:
+            value = args[arg].split(",")
+            value = [v.strip() for v in value if v.strip()]
+            args[arg] = value
+
+    return args
+
+
 def _handle_fnc_endpoint(api_client: FncApiClient, endpoint: EndpointKey, param: dict):
     demisto.info(f"Handling {endpoint.value} Request.")
 
@@ -132,28 +178,15 @@ def formatEvents(r_json):
     :return The formated response
     :rtype list
     """
-    columns = r_json["columns"] if "columns" in r_json else []
-    data = r_json["data"] if "data" in r_json else []
+    key = "data"
+    header_key = "columns"
 
-    if not data:
-        return []
+    if r_json and key in r_json:
+        data = r_json.pop(key, [])
+        headers = r_json.pop(header_key, [])
+        new_data = [dict(zip(headers, values)) for values in data]
 
-    newData = []
-    f = 0
-
-    for row in data:
-        if len(columns) != len(row):
-            f += 1
-
-        newRow = {}
-        for i, field in enumerate(columns):
-            newRow[field] = row[i]
-        newData.append(newRow)
-
-    demisto.info(
-        f"{f} events' size did not matched the headers' size and were ignored."
-    )
-    return newData
+    return new_data
 
 
 def get_poll_detections_request_params(args: Dict) -> Dict:
@@ -173,7 +206,6 @@ def get_poll_detections_request_params(args: Dict) -> Dict:
         'pull_muted_rules': config.get("muted_rule", False),
         'pull_muted_devices': config.get("muted_device", False),
         'pull_muted_detections': config.get("muted", False),
-        'filter_training_detections': True,
     }
 
     demisto.info("Arguments retrieved")
@@ -250,13 +282,20 @@ def commandGetDevices(client: FncApiClient, args):
 
     result: Dict[str, Any] = _handle_fnc_endpoint(
         api_client=client, endpoint=endpoint, param=args
-    )["devices"]
+    )
 
     prefix = "FortiNDRCloud.Devices"
     key = "device_list"
 
     if not result:
         raise Exception(f"We receive an invalid response from the server ({result})")
+
+    if 'devices' not in result:
+        raise Exception(
+            f"We receive an invalid response from the server (The response does not contains the key: {key})"
+        )
+
+    result = result["devices"]
 
     if key not in result:
         raise Exception(
@@ -277,21 +316,19 @@ def commandGetTasks(client: FncApiClient, args):
     """Get a list of all the PCAP tasks."""
     demisto.info("commandGetTasks has been called.")
 
-    endpoint = EndpointKey.GET_TASK
+    endpoint = EndpointKey.GET_TASKS
 
     taskid = args.pop("task_uuid", "")
     if taskid:
         endpoint = EndpointKey.GET_TASK
         args.update({"task_id": taskid})
-    else:
-        endpoint = EndpointKey.GET_TASKS
 
     result: Dict[str, Any] = _handle_fnc_endpoint(
         api_client=client, endpoint=endpoint, param=args
     )
 
     prefix = "FortiNDRCloud.Tasks"
-    key = "pcap_task" if taskid != "" else "pcaptasks"
+    key = "pcap_task" if taskid else "pcaptasks"
 
     if not result:
         raise Exception(f"We receive an invalid response from the server ({result})")
@@ -317,17 +354,16 @@ def commandCreateTask(client: FncApiClient, args):
 
     endpoint = EndpointKey.CREATE_TASK
 
-    sensor_ids = []
     if "sensor_ids" in args:
-        sensor_ids = args["sensor_ids"].split(",")
-        args.pop("sensor_ids")
-
-    args["sensor_ids"] = sensor_ids
+        args = _split_multivalue_args(args=args, multiple_values=["sensor_ids"])
+    else:
+        args.update("sensor_ids", [])
 
     result = _handle_fnc_endpoint(api_client=client, endpoint=endpoint, param=args)
 
-    if "pcaptask" in result:
+    key = "pcaptask"
 
+    if key in result:
         demisto.info("CommandCreateTask successfully completed.")
 
         return CommandResults(readable_output="Task created successfully")
@@ -572,10 +608,10 @@ def commandGetEntityFile(client: FncApiClient, args):
 
 def commandFetchIncidents(
     client: FncApiClient, params, integration_context
-) -> tuple[ApiContext, dict[str, list[Dict[str, Any]]]]:
+) -> tuple[ApiContext, list[Dict[str, Any]]]:
     logger: FncCortexLoggerCollector = client.get_logger()
     demisto.info("CommandFetchIncidents has been called.")
-    
+
     params = get_poll_detections_request_params(args=params)
 
     last_detection = integration_context.get('last_poll', None)
@@ -588,8 +624,7 @@ def commandFetchIncidents(
         demisto.info("Last history was: ", last_history)
         history = json.loads(last_history)
 
-    incidents_c: List[Dict[str, Any]] = []
-    incidents_h: List[Dict[str, Any]] = []
+    incidents: List[Dict[str, Any]] = []
 
     try:
         # We restore the context using the persisted values of the
@@ -609,35 +644,17 @@ def commandFetchIncidents(
         else:
             demisto.info("Initializing the Context")
             h_context, context = client.get_splitted_context(params)
-        
+
         flush_logs(logger=logger)
 
         # Pull current detections
         demisto.info("Polling current detections")
 
+        detections = []
         for response in client.continuous_polling(context=context, args=params):
-            detections = response.get('detections', [])
-            if detections:
-                for detection in detections:
-                    severity = mapSeverity(detection["rule_severity"])
-                    incident = {
-                        "name": "Fortinet FortiNDR Cloud - " + detection["rule_name"],
-                        "occurred": detection["created"],
-                        "severity": severity,
-                        "details": detection["rule_description"],
-                        "dbotMirrorId": detection["uuid"],
-                        "rawJSON": json.dumps(detection),
-                        "type": "Fortinet FortiNDR Cloud Detection",
-                        "CustomFields": {  # Map specific XSOAR Custom Fields
-                            "fortindrcloudcategory": detection["rule_category"],
-                            "fortindrcloudconfidence": detection["rule_confidence"],
-                            "fortindrcloudstatus": detection["status"],
-                        },
-                    }
-
-                incidents_c.append(incident)
             flush_logs(logger=logger)
-
+            c_detections = response.get('detections', [])
+            detections.extend(c_detections)
         context.clear_args()
 
         # Pull next piece of history detections
@@ -645,30 +662,12 @@ def commandFetchIncidents(
 
         params.update({'limit': HISTORY_LIMIT})
         for response in client.poll_history(context=h_context, args=params):
-            detections = response.get('detections', [])
-
-            if detections:
-                for detection in detections:
-                    severity = mapSeverity(detection["rule_severity"])
-                    incident = {
-                        "name": "Fortinet FortiNDR Cloud - " + detection["rule_name"],
-                        "occurred": detection["created"],
-                        "severity": severity,
-                        "details": detection["rule_description"],
-                        "dbotMirrorId": detection["uuid"],
-                        "rawJSON": json.dumps(detection),
-                        "type": "Fortinet FortiNDR Cloud Detection",
-                        "CustomFields": {  # Map specific XSOAR Custom Fields
-                            "fortindrcloudcategory": detection["rule_category"],
-                            "fortindrcloudconfidence": detection["rule_confidence"],
-                            "fortindrcloudstatus": detection["status"],
-                        },
-                    }
-
-                incidents_h.append(incident)
             flush_logs(logger=logger)
+            h_detections = response.get('detections', [])
+            detections.extend(h_detections)
 
         h_context.clear_args()
+        incidents = _create_cortex_incidents(detections=detections)
 
         # checkpoint for the first Detection iteration
         last_poll = context.get_checkpoint()
@@ -689,11 +688,6 @@ def commandFetchIncidents(
         flush_logs(logger=logger)
         demisto.error(f"Fetch Incidents failed: {e}")
         raise e
-
-    incidents = {
-        "current": incidents_c,
-        "history": incidents_h
-    }
 
     return integration_context, incidents
 
@@ -842,14 +836,16 @@ def commandCreateDetectionRule(client: FncApiClient, args):
 
     endpoint = EndpointKey.CREATE_RULE
 
-    run_accts = [args["run_account_uuids"]]
-    dev_ip_fields = [args["device_ip_fields"]]
+    if "run_account_uuids" in args:
+        args = _split_multivalue_args(args=args, multiple_values=["run_account_uuids"])
 
-    args.pop("run_account_uuids")
-    args.pop("device_ip_fields")
+    if "device_ip_fields" in args:
+        args = _split_multivalue_args(args=args, multiple_values=["device_ip_fields"])
+    else:
+        args.update({"device_ip_fields": ["DEFAULT"]})
 
-    args["run_account_uuids"] = run_accts
-    args["device_ip_fields"] = dev_ip_fields
+    if "indicator_fields" in args:
+        args = _split_multivalue_args(args=args, multiple_values=["indicator_fields"])
 
     result: Dict[str, Any] = _handle_fnc_endpoint(
         api_client=client, endpoint=endpoint, param=args
@@ -939,13 +935,8 @@ def main():
 
             # fetch-incidents calls ``demisto.incidents()`` to provide the list
             # of incidents to create
-            demisto.info("Sending incidents for current to Cortex")
-            incidents_c = incidents['current']
-            demisto.incidents(incidents=incidents_c)
-
-            demisto.info("Sending incidents for history to Cortex")
-            incidents_h = incidents['history']
-            demisto.incidents(incidents=incidents_h)
+            demisto.info(f"Sending {len(incidents)} incidents to Cortex")
+            demisto.incidents(incidents=incidents)
 
             demisto.info("Incidents successfully sent.")
 
