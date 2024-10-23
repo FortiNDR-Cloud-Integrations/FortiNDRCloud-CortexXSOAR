@@ -1,5 +1,3 @@
-
-
 ## Installation Guide
 ### Build Docker Image
 1. Go to **docker** folder and build a public accessible Docker image for the dependencies in Docker Hub.
