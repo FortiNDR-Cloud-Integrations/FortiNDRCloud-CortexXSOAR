@@ -1,7 +1,11 @@
 ## Installation Guide
-### Build Docker Image
-1. Go to **docker** folder and build a public accessible Docker image for the dependencies in Docker Hub.
-2. Get the Docker image name in Docker Hub and put in the **dockerimage** field in **Fortinet_FortiNDR_Cloud.yml**.
+### Prerequisite
+To install **V1.1.0** release, Docker Image for dependent libraries is **required**.
+1. Build a publicly accessible Docker Image for the dependencies in Docker Hub using **Docker/Dockerfile**.
+
+2. Update the yaml file with the location of the Docker Image:
+Get the Docker Image name from Docker hub where publicly accessible docker image is stored and put it in the **dockerimage** field in **Fortinet_FortiNDR_Cloud.yml**.
+
 ### Install
 1. Login into Cortex XSOAR via web browser.
 2. Navigate to **Settings** > **Integrations** > **Instances**.

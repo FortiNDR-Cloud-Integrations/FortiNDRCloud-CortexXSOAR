@@ -960,7 +960,7 @@ script:
       description: List of event fields to check for impacted devices.
     description: Create a new detection rule.
 
-  dockerimage: bobbysundocker8910/dev-testing:1.0.0
+  dockerimage: <Docker image name>
   isfetch: true
   runonce: false
   subtype: python3
