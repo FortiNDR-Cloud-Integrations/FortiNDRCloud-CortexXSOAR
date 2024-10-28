@@ -1,0 +1,1998 @@
+commonfields:
+  id: Fortinet FortiNDR Cloud
+  version: -1
+name: Fortinet FortiNDR Cloud
+display: Fortinet FortiNDR Cloud (Partner Contribution)
+category: Network Security
+description: Fortinet FortiNDR Cloud is a cloud-native network detection and response solution built for the rapid detection of threat activity, investigation of suspicious behavior, proactive hunting for potential risks, and directing a fast and effective response to active threats.
+configuration:
+- display: API Token
+  name: api_key
+  type: 4
+  required: true
+- display: Domain
+  name: domain
+  type: 0
+  required: false
+  defaultvalue: icebrg.io
+- display: First fetch timestamp (<number> <time unit>, e.g., 12 hours, 7 days)
+  name: first_fetch
+  type: 0
+  required: true
+  defaultvalue: 7 days
+- display: Detection's status to fetch
+  name: status
+  options:
+  - active
+  - resolved
+  - all
+  defaultvalue: active
+  type: 15
+- display: Include muted detections
+  name: muted
+  defaultvalue: 'false'
+  type: 8
+- display: Include muted devices
+  name: muted_device
+  type: 8
+  defaultvalue: 'false'
+- display: Include muted rules
+  name: muted_rule
+  defaultvalue: 'false'
+  type: 8
+- display: Fetch incidents
+  name: isFetch
+  type: 8
+  required: false
+- display: Incident type
+  name: incidentType
+  defaultvalue: Fortinet FortiNDR Cloud Detection
+  type: 13
+  required: false
+- display: 'Incident Filter: Account UUID (Optional)'
+  name: account_uuid
+  type: 0
+  required: false
+- display: Maximum incidents in each fetch each run
+  name: max_fetch
+  defaultvalue: '50'
+  type: 0
+  required: false
+- display: Delay to allow detection processing before polling
+  name: delay
+  defaultvalue: '10'
+  type: 0
+  required: false
+- display: Incidents Fetch Interval
+  name: incidentFetchInterval
+  defaultvalue: '5'
+  type: 19
+  required: false
+script:
+  script: >
+    register_module_line('Fortinet FortiNDR Cloud', 'start', __line__())
+
+    ### pack version: 1.0.1
+
+    """    Fortinet FortiNDR Cloud Integration for Cortex XSOAR (aka Demisto)
+
+           This integration allows fetching detections, entities, events and
+           saved searches from Fortinet FortiNDR Cloud APIs, also allows for
+           some management operations like creating scheduled pcap tasks,
+           updating detection rules and resolving detections.
+    """
+
+
+    import json
+
+
+
+
+    from fnc import FncClient, FncClientLogger
+
+    from fnc.api import ApiContext, EndpointKey, FncApiClient, FncRestClient
+
+    from fnc.errors import ErrorMessages, ErrorType, FncClientError
+
+
+
+
+    USER_AGENT = "Fnc_Cortex.v1.1.0"
+
+    HISTORY_LIMIT = 500
+
+
+
+    class FncCortexRestClient(FncRestClient):
+        client: BaseClient
+
+        def __init__(self):
+            # The base_url value is ignored. The full_url argument is used instead. Rather than construct the url
+            # using the base url, we use the full url received from the client library.
+            self.client = BaseClient(base_url="ToBeIgnored")
+
+        def validate_request(self, req_args: dict):
+            if not req_args or "url" not in req_args:
+                raise FncClientError(
+                    error_type=ErrorType.REQUEST_VALIDATION_ERROR,
+                    error_message=ErrorMessages.REQUEST_URL_NOT_PROVIDED,
+                )
+
+            if "method" not in req_args:
+                raise FncClientError(
+                    error_type=ErrorType.REQUEST_VALIDATION_ERROR,
+                    error_message=ErrorMessages.REQUEST_METHOD_NOT_PROVIDED,
+                )
+
+        def send_request(self, req_args: dict = {}):
+            url = req_args["url"]
+            method = req_args["method"]
+            headers = req_args.get("headers", {})
+            timeout = req_args.get("timeout", 70)
+            parameters = req_args.get("params", {})
+            json_data = req_args.get("json", None)
+            data = req_args.get("data", None)
+
+            return self.client._http_request(
+                method=method,
+                full_url=url,
+                params=parameters,
+                data=data,
+                json_data=json_data,
+                headers=headers,
+                timeout=timeout,
+                resp_type="response"
+            )
+
+
+    # implement a logger class using FncClientLogger
+
+    class FncCortexLoggerCollector(FncClientLogger):
+        list_of_logs: list[tuple[str, str]] = []
+
+        def get_logs(self):
+            return self.list_of_logs
+
+        def clear_logs(self):
+            self.list_of_logs.clear()
+
+        def info(self, msg):
+            info_log = ('info', msg)
+            self.list_of_logs.append(info_log)
+
+        def debug(self, msg):
+            info_log = ('debug', msg)
+            self.list_of_logs.append(info_log)
+
+        def warning(self, msg):
+            info_log = ('info', msg)
+            self.list_of_logs.append(info_log)
+
+        def critical(self, msg):
+            info_log = ('error', msg)
+            self.list_of_logs.append(info_log)
+
+        def error(self, msg):
+            info_log = ('error', msg)
+            self.list_of_logs.append(info_log)
+
+
+    # Helper Methods
+
+
+    def flush_logs(logger: FncCortexLoggerCollector):
+        for level, log in logger.get_logs():
+            if level == 'info':
+                demisto.info(log)
+            elif level == 'debug':
+                demisto.debug(log)
+            else:
+                demisto.error(log)
+        logger.clear_logs()
+
+
+    def _create_cortex_incidents(detections):
+        incidents: List[Dict[str, Any]] = []
+
+        if len(detections) > 0:
+            demisto.info(f"Creating incidents for {len(detections)} detections.")
+        else:
+            demisto.info("No detections was retrieved.")
+
+        for detection in detections:
+            severity = mapSeverity(detection["rule_severity"])
+            incident = {
+                "name": "Fortinet FortiNDR Cloud - " + detection["rule_name"],
+                "occurred": detection["created"],
+                "severity": severity,
+                "details": detection["rule_description"],
+                "dbotMirrorId": detection["uuid"],
+                "rawJSON": json.dumps(detection),
+                "type": "Fortinet FortiNDR Cloud Detection",
+                "CustomFields": {  # Map specific XSOAR Custom Fields
+                    "fortindrcloudcategory": detection["rule_category"],
+                    "fortindrcloudconfidence": detection["rule_confidence"],
+                    "fortindrcloudstatus": detection["status"],
+                },
+            }
+
+            incidents.append(incident)
+
+        return incidents
+
+
+    def _split_multivalue_args(args: dict, multiple_values: list = []) -> dict:
+        """Update the arguments contained in the multiple_values list
+        from a comma separated string into a list of string.
+        :parm Dict[str, Any] args: Arguments to be processed
+        :parm List[str] multiple_values: Arguments with multiple values
+        :return the processed list of arguments
+        :rtype str
+        """
+        for arg in multiple_values:
+            if arg in args:
+                value = args[arg].split(",")
+                value = [v.strip() for v in value if v.strip()]
+                args[arg] = value
+
+        return args
+
+
+    def _handle_fnc_endpoint(api_client: FncApiClient, endpoint: EndpointKey, param: dict):
+        demisto.info(f"Handling {endpoint.value} Request.")
+
+        param.pop("context", None)
+
+        response = None
+
+        logger: FncCortexLoggerCollector = api_client.get_logger()
+        try:
+            response = api_client.call_endpoint(endpoint=endpoint, args=param)
+            flush_logs(logger=logger)
+            demisto.info(f"{endpoint.value} successfully completed.")
+            return response
+        except FncClientError as e:
+            flush_logs(logger=logger)
+            demisto.error(f"{endpoint.value} Request Failed. [{str(e)}]")
+            raise e
+
+
+    def formatEvents(r_json):
+        """Format the events in the response to be shown as a table.
+        :parm Any r_json: Received response
+        :return The formated response
+        :rtype list
+        """
+        key = "data"
+        header_key = "columns"
+
+        if r_json and key in r_json:
+            data = r_json.pop(key, [])
+            headers = r_json.pop(header_key, [])
+            new_data = [dict(zip(headers, values)) for values in data]
+
+        return new_data
+
+
+    def get_poll_detections_request_params(args: Dict) -> Dict:
+        demisto.info("Retrieving params for Detections polling.")
+
+        config = args
+
+        request_params = {
+            'include_signature': True,
+            'include_description': True,
+
+            'start_date': config.get("first_fetch", ""),
+            'polling_delay': config.get("delay", 10),
+            'account_uuid': config.get("account_uuid", ""),
+
+            'status': config.get("status", ""),
+            'pull_muted_rules': config.get("muted_rule", False),
+            'pull_muted_devices': config.get("muted_device", False),
+            'pull_muted_detections': config.get("muted", False),
+        }
+
+        demisto.info("Arguments retrieved")
+
+        return request_params
+
+
+    def mapSeverity(severity) -> int:
+        match severity:
+            case "high":
+                return 3
+            case "moderate":
+                return 2
+            case "low":
+                return 1
+            case _:
+                return 0
+
+    ### Commands Methods ###
+
+
+
+    def commandTestModule(client: FncApiClient):
+        """Test that the module is up and running."""
+        demisto.info("Testing connection to FortiNDR Cloud Services")
+
+        try:
+            commandGetSensors(client=client, args={})
+            demisto.info("Connection successfully verified.")
+            return "ok"
+        except Exception as e:
+            demisto.error(f"Module test failed: {e}")
+            raise e
+
+
+    # Sensors API commands
+
+
+
+    def commandGetSensors(client: FncApiClient, args):
+        """Get a list of all sensors."""
+        demisto.info("CommandGetSensors has been called.")
+
+        endpoint = EndpointKey.GET_SENSORS
+
+        result: Dict[str, Any] = _handle_fnc_endpoint(
+            api_client=client, endpoint=endpoint, param=args
+        )
+
+        prefix = "FortiNDRCloud.Sensors"
+        key = "sensors"
+
+        if not result:
+            raise Exception(f"We receive an invalid response from the server ({result})")
+
+        if key not in result:
+            raise Exception(
+                f"We receive an invalid response from the server (The response does not contains the key: {key})"
+            )
+
+        if not result.get(key):
+            return "We could not find any result for Get Sensors."
+
+        demisto.info("CommandGetSensors successfully completed.")
+
+        return CommandResults(
+            outputs_prefix=prefix, outputs_key_field=key, outputs=result.get(key)
+        )
+
+
+    def commandGetDevices(client: FncApiClient, args):
+        """Get the number of devices."""
+        demisto.info("CommandGetDevices has been called.")
+
+        endpoint = EndpointKey.GET_DEVICES
+
+        result: Dict[str, Any] = _handle_fnc_endpoint(
+            api_client=client, endpoint=endpoint, param=args
+        )
+
+        prefix = "FortiNDRCloud.Devices"
+        key = "device_list"
+
+        if not result:
+            raise Exception(f"We receive an invalid response from the server ({result})")
+
+        if 'devices' not in result:
+            raise Exception(
+                f"We receive an invalid response from the server (The response does not contains the key: {key})"
+            )
+
+        result = result["devices"]
+
+        if key not in result:
+            raise Exception(
+                f"We receive an invalid response from the server (The response does not contains the key: {key})"
+            )
+
+        if not result.get(key):
+            return "We could not find any result for Get Devices."
+
+        demisto.info("CommandGetDevices successfully completed.")
+
+        return CommandResults(
+            outputs_prefix=prefix, outputs_key_field=key, outputs=result.get(key)
+        )
+
+
+    def commandGetTasks(client: FncApiClient, args):
+        """Get a list of all the PCAP tasks."""
+        demisto.info("commandGetTasks has been called.")
+
+        endpoint = EndpointKey.GET_TASKS
+
+        taskid = args.pop("task_uuid", "")
+        if taskid:
+            endpoint = EndpointKey.GET_TASK
+            args.update({"task_id": taskid})
+
+        result: Dict[str, Any] = _handle_fnc_endpoint(
+            api_client=client, endpoint=endpoint, param=args
+        )
+
+        prefix = "FortiNDRCloud.Tasks"
+        key = "pcap_task" if taskid else "pcaptasks"
+
+        if not result:
+            raise Exception(f"We receive an invalid response from the server ({result})")
+
+        if key not in result:
+            raise Exception(
+                f"We receive an invalid response from the server (The response does not contains the key: {key})"
+            )
+
+        if not result.get(key):
+            return "We could not find any result for Get Tasks."
+
+        demisto.info("CommandGetTasks successfully completed.")
+
+        return CommandResults(
+            outputs_prefix=prefix, outputs_key_field=key, outputs=result.get(key)
+        )
+
+
+    def commandCreateTask(client: FncApiClient, args):
+        """Create a new PCAP task."""
+        demisto.info("commandCreateTask has been called.")
+
+        endpoint = EndpointKey.CREATE_TASK
+
+        if "sensor_ids" in args:
+            args = _split_multivalue_args(args=args, multiple_values=["sensor_ids"])
+        else:
+            args.update("sensor_ids", [])
+
+        result = _handle_fnc_endpoint(api_client=client, endpoint=endpoint, param=args)
+
+        key = "pcaptask"
+
+        if key in result:
+            demisto.info("CommandCreateTask successfully completed.")
+
+            return CommandResults(readable_output="Task created successfully")
+        else:
+            raise Exception(f"Task creation failed with: {result}")
+
+
+    def commandGetEventsTelemetry(client: FncApiClient, args):
+        """Get event telemetry data grouped by time"""
+        demisto.info("commandGetEventsTelemetry has been called.")
+
+        endpoint = EndpointKey.GET_TELEMETRY_EVENTS
+
+        result: Dict[str, Any] = _handle_fnc_endpoint(
+            api_client=client, endpoint=endpoint, param=args
+        )
+
+        prefix = "FortiNDRCloud.Telemetry.Events"
+        key = "data"
+
+        if not result:
+            raise Exception(f"We receive an invalid response from the server ({result})")
+
+        if key not in result:
+            raise Exception(
+                f"We receive an invalid response from the server (The response does not contains the key: {key})"
+            )
+
+        if not result.get(key):
+            return "We could not find any result for Get Event Telemetry."
+
+        demisto.info("commandGetEventsTelemetry successfully completed.")
+
+        return CommandResults(
+            outputs_prefix=prefix, outputs_key_field=key, outputs=formatEvents(result)
+        )
+
+
+    def commandGetNetworkTelemetry(client: FncApiClient, args):
+        """Get network telemetry data grouped by time"""
+        demisto.info("commandGetNetworkTelemetry has been called.")
+
+        endpoint = EndpointKey.GET_TELEMETRY_NETWORK
+
+        latest_each_month = args.pop("latest_each_month", False)
+        if latest_each_month:
+            args.update({"latest_each_month": True})
+
+        result: Dict[str, Any] = _handle_fnc_endpoint(
+            api_client=client, endpoint=endpoint, param=args
+        )
+
+        prefix = "FortiNDRCloud.Telemetry.NetworkUsage"
+        key = "network_usage"
+
+        if not result:
+            raise Exception(f"We receive an invalid response from the server ({result})")
+
+        if key not in result:
+            raise Exception(
+                f"We receive an invalid response from the server (The response does not contains the key: {key})"
+            )
+
+        if not result.get(key):
+            return "We could not find any result for Get Network Telemetry."
+
+        demisto.info("commandGetNetworkTelemetry successfully completed.")
+
+        return CommandResults(
+            outputs_prefix=prefix, outputs_key_field=key, outputs=result.get(key)
+        )
+
+
+    def commandGetPacketstatsTelemetry(client: FncApiClient, args):
+        """Get packetstats telemetry data grouped by time."""
+        demisto.info("commandGetPacketstatsTelemetry has been called.")
+
+        endpoint = EndpointKey.GET_TELEMETRY_PACKETSTATS
+
+        result: Dict[str, Any] = _handle_fnc_endpoint(
+            api_client=client, endpoint=endpoint, param=args
+        )
+
+        prefix = "FortiNDRCloud.Telemetry.Packetstats"
+        key = "data"
+
+        if not result:
+            raise Exception(f"We receive an invalid response from the server ({result})")
+
+        if key not in result:
+            raise Exception(
+                f"We receive an invalid response from the server (The response does not contains the key: {key})"
+            )
+
+        if not result.get(key):
+            return "We could not find any result for Get Packetstats Telemetry."
+
+        demisto.info("commandGetPacketstatsTelemetry successfully completed.")
+
+        return CommandResults(
+            outputs_prefix=prefix, outputs_key_field=key, outputs=result.get(key)
+        )
+
+
+    # Entity API commands
+
+
+
+    def commandGetEntitySummary(client: FncApiClient, args):
+        """Get entity summary information about an IP or domain."""
+        demisto.info("commandGetEntitySummary has been called.")
+        endpoint = EndpointKey.GET_ENTITY_SUMMARY
+
+        result: Dict[str, Any] = _handle_fnc_endpoint(
+            api_client=client, endpoint=endpoint, param=args
+        )
+
+        prefix = "FortiNDRCloud.Entity.Summary"
+        key = "summary"
+
+        if not result:
+            raise Exception(f"We receive an invalid response from the server ({result})")
+
+        if key not in result:
+            raise Exception(
+                f"We receive an invalid response from the server (The response does not contains the key: {key})"
+            )
+
+        if not result.get(key):
+            return "We could not find any result for Get Entity Summary."
+
+        demisto.info("commandGetEntitySummary successfully completed.")
+
+        return CommandResults(
+            outputs_prefix=prefix, outputs_key_field=key, outputs=result.get(key)
+        )
+
+
+    def commandGetEntityPdns(client: FncApiClient, args: Dict[str, Any]):
+        """Get passive DNS information about an IP or domain."""
+        demisto.info("commandGetEntityPdns has been called.")
+
+        endpoint = EndpointKey.GET_ENTITY_PDNS
+
+        result: Dict[str, Any] = _handle_fnc_endpoint(
+            api_client=client, endpoint=endpoint, param=args
+        )
+
+        prefix = "FortiNDRCloud.Entity.PDNS"
+        key = "passivedns"
+
+        if not result:
+            raise Exception(f"We receive an invalid response from the server({result})")
+
+        if "result_count" in result and result.get("result_count") == 0:
+            return "We could not find any result for Get Entity PDNS."
+
+        if key not in result:
+            raise Exception(
+                f"We receive an invalid response from the server (The response does not contains the key: {key})"
+            )
+
+        if not result.get(key):
+            return "We could not find any result for Get Entity PDNS."
+
+        demisto.info("commandGetEntityPdns successfully completed.")
+
+        return CommandResults(
+            outputs_prefix=prefix, outputs_key_field=key, outputs=result.get(key)
+        )
+
+
+    def commandGetEntityDhcp(client: FncApiClient, args: Dict[str, Any]):
+        """Get DHCP information about an IP address."""
+        demisto.info("commandGetEntityDhcp has been called.")
+
+        endpoint = EndpointKey.GET_ENTITY_DHCP
+
+        result: Dict[str, Any] = _handle_fnc_endpoint(
+            api_client=client, endpoint=endpoint, param=args
+        )
+
+        prefix = "FortiNDRCloud.Entity.DHCP"
+        key = "dhcp"
+
+        if not result:
+            raise Exception(f"We receive an invalid response from the server ({result})")
+
+        if "result_count" in result and result.get("result_count") == 0:
+            return "We could not find any result for Get Entity DHCP."
+
+        if key not in result:
+            raise Exception(
+                f"We receive an invalid response from the server (The response does not contains the key: {key})"
+            )
+
+        if not result.get(key):
+            return "We could not find any result for Get Entity DHCP."
+
+        demisto.info("commandGetEntityDhcp successfully completed.")
+
+        return CommandResults(
+            outputs_prefix=prefix, outputs_key_field=key, outputs=result.get(key)
+        )
+
+
+    def commandGetEntityFile(client: FncApiClient, args):
+        """Get entity information about a file"""
+        demisto.info("commandGetEntityFile has been called.")
+
+        endpoint = EndpointKey.GET_ENTITY_FILE
+
+        hash = args.pop("hash", "")
+        args.update({"entity": hash})
+
+        result: Dict[str, Any] = _handle_fnc_endpoint(
+            api_client=client, endpoint=endpoint, param=args
+        )
+
+        prefix = "FortiNDRCloud.Entity.File"
+        key = "file"
+
+        if not result:
+            raise Exception(f"We receive an invalid response from the server ({result})")
+
+        if key not in result:
+            raise Exception(
+                f"We receive an invalid response from the server (The response does not contains the key: {key})"
+            )
+
+        if not result.get(key):
+            return "We could not find any result for Get Entity File."
+
+        demisto.info("commandGetEntityFile successfully completed.")
+
+        return CommandResults(
+            outputs_prefix=prefix, outputs_key_field=key, outputs=result.get(key)
+        )
+
+
+    # Detections API commands
+
+
+
+    def commandFetchIncidents(
+        client: FncApiClient, params, integration_context
+    ) -> tuple[ApiContext, list[Dict[str, Any]]]:
+        logger: FncCortexLoggerCollector = client.get_logger()
+        demisto.info("CommandFetchIncidents has been called.")
+
+        params = get_poll_detections_request_params(args=params)
+
+        last_detection = integration_context.get('last_poll', None)
+        if last_detection:
+            demisto.info("Last checkpoint was: ", last_detection)
+
+        history = {}
+        last_history = integration_context.get('last_history', None)
+        if last_history:
+            demisto.info("Last history was: ", last_history)
+            history = json.loads(last_history)
+
+        incidents: List[Dict[str, Any]] = []
+
+        try:
+            # We restore the context using the persisted values of the
+            # last_detection(checkpoint) and the history if they exist
+            # Otherwise, we initialize them by calling the get splitted
+            # context method.
+
+            context: ApiContext
+            h_context: ApiContext
+
+            if last_detection:
+                demisto.info("Restoring the Context")
+                context = ApiContext()
+                context.update_checkpoint(checkpoint=last_detection)
+                h_context = ApiContext()
+                h_context.update_history(history=history)
+            else:
+                demisto.info("Initializing the Context")
+                h_context, context = client.get_splitted_context(params)
+
+            flush_logs(logger=logger)
+
+            # Pull current detections
+            demisto.info("Polling current detections")
+
+            detections = []
+            for response in client.continuous_polling(context=context, args=params):
+                flush_logs(logger=logger)
+                c_detections = response.get('detections', [])
+                detections.extend(c_detections)
+            context.clear_args()
+
+            # Pull next piece of history detections
+            demisto.info('Polling historical data')
+
+            params.update({'limit': HISTORY_LIMIT})
+            for response in client.poll_history(context=h_context, args=params):
+                flush_logs(logger=logger)
+                h_detections = response.get('detections', [])
+                detections.extend(h_detections)
+
+            h_context.clear_args()
+            incidents = _create_cortex_incidents(detections=detections)
+
+            # checkpoint for the first Detection iteration
+            last_poll = context.get_checkpoint()
+            history = h_context.get_remaining_history()
+
+            demisto.debug("Updating last poll checkpoint")
+            integration_context["last_poll"] = last_poll
+
+            last_history = json.dumps(history)
+            demisto.debug("Updating last history checkpoint.")
+            integration_context["last_history"] = last_history
+
+            demisto.info(f"Last poll checkpoint set at {last_poll}")
+            demisto.info(f"Last history checkpoint set at {last_history}")
+
+            demisto.info("Completed processing Detections")
+        except Exception as e:
+            flush_logs(logger=logger)
+            demisto.error(f"Fetch Incidents failed: {e}")
+            raise e
+
+        return integration_context, incidents
+
+
+    def commandGetDetections(client: FncApiClient, args):
+        """Get a list of detections."""
+        demisto.info("commandGetDetections has been called.")
+
+        endpoint = EndpointKey.GET_DETECTIONS
+
+        result: Dict[str, Any] = _handle_fnc_endpoint(
+            api_client=client, endpoint=endpoint, param=args
+        )
+
+        prefix = "FortiNDRCloud.Detections"
+        key = "detections"
+
+        if not result:
+            raise Exception(f"We receive an invalid response from the server ({result})")
+
+        if key not in result:
+            raise Exception(
+                f"We receive an invalid response from the server (The response does not contains the key: {key})"
+            )
+
+        if not result.get(key):
+            return "We could not find any result for Get Detections."
+
+        demisto.info("commandGetDetections successfully completed.")
+
+        return CommandResults(
+            outputs_prefix=prefix, outputs_key_field=key, outputs=result.get(key)
+        )
+
+
+    def commandGetDetectionEvents(client: FncApiClient, args):
+        """Get a list of the events associated to a specific detection."""
+        demisto.info("CommandGetDetectionEvents has been called.")
+
+        endpoint = EndpointKey.GET_DETECTION_EVENTS
+
+        result: Dict[str, Any] = _handle_fnc_endpoint(
+            api_client=client, endpoint=endpoint, param=args
+        )
+
+        events = []
+        detection_uuid = args.get("detection_uuid", "")
+        for event in result.get("events", []):
+            rule_uuid = event.get("rule_uuid", "")
+            event = event.get("event", {})
+            if event:
+                event["detection_uuid"] = detection_uuid
+                event["rule_uuid"] = rule_uuid
+                events.append(event)
+        result["events"] = events
+
+        prefix = "FortiNDRCloud.Detections"
+        key = "events"
+
+        if not result:
+            raise Exception(f"We receive an invalid response from the server ({result})")
+
+        if key not in result:
+            raise Exception(
+                f"We receive an invalid response from the server (The response does not contains the key: {key})"
+            )
+
+        if not result.get(key):
+            return "We could not find any result for Get Detections Events."
+
+        demisto.info("commandGetDetectionEvents successfully completed.")
+
+        return CommandResults(
+            outputs_prefix=prefix, outputs_key_field=key, outputs=result.get(key)
+        )
+
+
+    def commandGetDetectionRules(client: FncApiClient, args):
+        """Get a list of detection rules."""
+        demisto.info("CommandGetDetectionRules has been called.")
+
+        endpoint = EndpointKey.GET_RULES
+
+        result: Dict[str, Any] = _handle_fnc_endpoint(
+            api_client=client, endpoint=endpoint, param=args
+        )
+
+        prefix = "FortiNDRCloud.Rules"
+        key = "rules"
+
+        if not result:
+            raise Exception(f"We receive an invalid response from the server ({result})")
+
+        if key not in result:
+            raise Exception(
+                f"We receive an invalid response from the server (The response does not contains the key: {key})"
+            )
+
+        if not result.get(key):
+            return "We could not find any result for Get Detection Rules."
+
+        demisto.info("commandGetDetectionRules successfully completed.")
+
+        return CommandResults(
+            outputs_prefix=prefix, outputs_key_field=key, outputs=result.get(key)
+        )
+
+
+    def commandGetDetectionRuleEvents(client: FncApiClient, args):
+        """Get a list of the events that matched on a specific rule."""
+        demisto.info("CommandGetDetectionRuleEvents has been called.")
+
+        endpoint = EndpointKey.GET_RULE_EVENTS
+
+        rule = args.pop("rule_uuid", "")
+        args.update({"rule_id": rule})
+
+        result: Dict[str, Any] = _handle_fnc_endpoint(
+            api_client=client, endpoint=endpoint, param=args
+        )
+
+        prefix = "FortiNDRCloud.Detections"
+        key = "events"
+
+        if not result:
+            raise Exception(f"We receive an invalid response from the server ({result})")
+
+        if key not in result:
+            raise Exception(
+                f"We receive an invalid response from the server (The response does not contains the key: {key})"
+            )
+
+        if not result.get(key):
+            return "We could not find any result for Get Detections Rule Events."
+
+        demisto.info("commandGetDetectionRuleEvents successfully completed.")
+
+        return CommandResults(
+            outputs_prefix=prefix, outputs_key_field=key, outputs=result.get(key)
+        )
+
+
+    def commandCreateDetectionRule(client: FncApiClient, args):
+        """Create a new detection rule."""
+        demisto.info("commandCreateDetectionRule has been called.")
+
+        endpoint = EndpointKey.CREATE_RULE
+
+        if "run_account_uuids" in args:
+            args = _split_multivalue_args(args=args, multiple_values=["run_account_uuids"])
+
+        if "device_ip_fields" in args:
+            args = _split_multivalue_args(args=args, multiple_values=["device_ip_fields"])
+        else:
+            args.update({"device_ip_fields": ["DEFAULT"]})
+
+        if "indicator_fields" in args:
+            args = _split_multivalue_args(args=args, multiple_values=["indicator_fields"])
+
+        result: Dict[str, Any] = _handle_fnc_endpoint(
+            api_client=client, endpoint=endpoint, param=args
+        )
+
+        if "rule" in result:
+
+            demisto.info("commandCreateDetectionRule successfully completed.")
+
+            return CommandResults(readable_output="Rule created successfully")
+        else:
+            raise Exception(f"Rule creation failed with: {result}")
+
+
+    def commandResolveDetection(client: FncApiClient, args):
+        """Resolve a specific detection."""
+        demisto.info("commandResolveDetection has been called.")
+
+        endpoint = EndpointKey.RESOLVE_DETECTION
+
+        if "detection_uuid" not in args:
+            raise Exception(
+                "Detection cannot be resolved: No detection_uuid has been provided."
+            )
+
+        if "resolution" not in args:
+            raise Exception(
+                "Detection cannot be resolved: No resolution has been provided."
+            )
+
+        detection = args.pop("detection_uuid", "")
+        args.update({"detection_id": detection})
+        result = _handle_fnc_endpoint(api_client=client, endpoint=endpoint, param=args)
+
+        if not result:
+
+            demisto.info("commandResolveDetection successfully completed.")
+
+            return CommandResults(readable_output="Detection resolved successfully")
+        else:
+            raise Exception(f"Detection resolution failed with: {result}")
+
+
+    def main():
+        # get command and args
+        command = demisto.command()
+        params = demisto.params()
+
+        demisto.info(f"Starting to handle command {command}")
+
+        logged_params = params.copy()
+        if "api_key" in logged_params:
+            logged_params["api_key"] = "*********"
+
+        args: Dict[str, Any] = demisto.args()
+
+        # initialize common args
+        api_key = params.get("api_key", '')
+        domain = params.get("domain", None)
+
+        # attempt command execution
+        try:
+            restClient = FncCortexRestClient()
+            logger_collector = FncCortexLoggerCollector()
+
+            fClient = FncClient.get_api_client(
+                name=USER_AGENT,
+                api_token=api_key,
+                domain=domain,
+                rest_client=restClient,
+                logger=logger_collector
+            )
+
+            if isinstance(fClient, FncApiClient):
+                fnc_api_Client = fClient
+
+            if command == "test-module":
+                return_results(commandTestModule(client=fnc_api_Client))
+
+            elif command == "fetch-incidents":
+                integration_context, incidents = commandFetchIncidents(
+                    fnc_api_Client, params, demisto.getIntegrationContext()
+                )
+                # saves context for next run
+                demisto.info("Saving integration context in Cortex")
+                demisto.setIntegrationContext(integration_context)
+
+                # fetch-incidents calls ``demisto.incidents()`` to provide the list
+                # of incidents to create
+                demisto.info("Sending incidents to Cortex")
+                demisto.incidents(incidents=incidents)
+
+                demisto.info("Incidents successfully sent.")
+
+            elif command == "fortindr-cloud-get-sensors":
+                return_results(commandGetSensors(fnc_api_Client, args))
+
+            elif command == "fortindr-cloud-get-devices":
+                return_results(commandGetDevices(fnc_api_Client, args))
+
+            elif command == "fortindr-cloud-get-tasks":
+                return_results(commandGetTasks(fnc_api_Client, args))
+
+            elif command == "fortindr-cloud-create-task":
+                return_results(commandCreateTask(fnc_api_Client, args))
+
+            elif command == "fortindr-cloud-get-telemetry-events":
+                return_results(
+                    commandGetEventsTelemetry(fnc_api_Client, args)
+                )
+
+            elif command == "fortindr-cloud-get-telemetry-network":
+                return_results(
+                    commandGetNetworkTelemetry(fnc_api_Client, args)
+                )
+
+            elif command == "fortindr-cloud-get-telemetry-packetstats":
+                return_results(
+                    commandGetPacketstatsTelemetry(fnc_api_Client, args)
+                )
+
+            elif command == "fortindr-cloud-get-detections":
+                return_results(commandGetDetections(fnc_api_Client, args))
+
+            elif command == "fortindr-cloud-get-detection-events":
+                return_results(commandGetDetectionEvents(fnc_api_Client, args))
+
+            elif command == "fortindr-cloud-get-detection-rules":
+                return_results(commandGetDetectionRules(fnc_api_Client, args))
+
+            elif command == "fortindr-cloud-get-detection-rule-events":
+                return_results(commandGetDetectionRuleEvents(fnc_api_Client, args))
+
+            elif command == "fortindr-cloud-resolve-detection":
+                return_results(commandResolveDetection(fnc_api_Client, args))
+
+            elif command == "fortindr-cloud-create-detection-rule":
+                return_results(commandCreateDetectionRule(fnc_api_Client, args))
+
+            elif command == "fortindr-cloud-get-entity-summary":
+                return_results(commandGetEntitySummary(fnc_api_Client, args))
+
+            elif command == "fortindr-cloud-get-entity-pdns":
+                return_results(commandGetEntityPdns(fnc_api_Client, args))
+
+            elif command == "fortindr-cloud-get-entity-dhcp":
+                return_results(commandGetEntityDhcp(fnc_api_Client, args))
+
+            elif command == "fortindr-cloud-get-entity-file":
+                return_results(commandGetEntityFile(fnc_api_Client, args))
+
+        # catch exceptions
+        except Exception as e:
+            demisto.error(traceback.format_exc())
+            return_error(
+                f"Failed to execute {demisto.command()} command.\nError:\n{str(e)}", str(e)
+            )
+
+
+    if __name__ in ("__main__", "__builtin__", "builtins"):
+
+        main()
+
+    register_module_line('Fortinet FortiNDR Cloud', 'end', __line__())
+  type: python
+  commands:
+  - name: fortindr-cloud-get-sensors
+    arguments:
+    - name: account_uuid
+      description: UUID of account to filter by.
+    - name: account_code
+      description: Account code to filter by.
+    - name: sensor_id
+      description: ID of the sensor to filter by.
+    - name: include
+      description: Include additional metadata such as status, interfaces, admin.sensor, admin.zeek, admin.suricata, etc.
+    - name: enabled
+      description: Filter by true or false. If not provided, all the sensors are returned.
+    outputs:
+    - contextPath: FortiNDRCloud.Sensors.created
+      description: Date when the sensor was created.
+      type: date
+    - contextPath: FortiNDRCloud.Sensors.updated
+      description: Date when the sensor was last updated.
+      type: date
+    - contextPath: FortiNDRCloud.Sensors.sensor_id
+      description: ID code of the sensor.
+      type: string
+    - contextPath: FortiNDRCloud.Sensors.account_code
+      description: ID code of the customer account.
+      type: string
+    - contextPath: FortiNDRCloud.Sensors.location
+      description: Latitude and longitude where the sensor is located.
+      type: string
+    - contextPath: FortiNDRCloud.Sensors.subdivision
+      description: State/Province where the sensor is located.
+      type: string
+    - contextPath: FortiNDRCloud.Sensors.city
+      description: City where the sensor is located.
+      type: string
+    - contextPath: FortiNDRCloud.Sensors.country
+      description: Country where the sensor is located.
+      type: string
+    - contextPath: FortiNDRCloud.Sensors.tags
+      description: Labels added for this sensor.
+      type: string
+    - contextPath: FortiNDRCloud.Sensors.pcap_enabled
+      description: If PCAP is enabled on the sensor (true/false).
+      type: boolean
+    description: Get a list of all sensors.
+  - name: fortindr-cloud-get-devices
+    arguments:
+    - name: start_date
+      description: Filter devices based on when they were seen.
+    - name: end_date
+      description: Filter devices based on when they were seen.
+    - name: cidr
+      description: Filter devices that are under a specific CIDR.
+    - name: sensor_id
+      description: Filter devices that were observed by a specific sensor.
+    - name: traffic_direction
+      description: Filter devices that have been noted to only have a certain directionality of traffic ("external" vs "internal").
+    - name: sort_by
+      auto: PREDEFINED
+      predefined:
+      - ip_address
+      - internal
+      - external
+      description: 'Sort output by: "ip_address", "internal", "external".'
+    - name: sort_direction
+      auto: PREDEFINED
+      predefined:
+      - asc
+      - desc
+      description: Sort direction ("asc" vs "desc").
+    outputs:
+    - contextPath: FortiNDRCloud.Devices.date
+      description: Date when the device was first seen.
+      type: date
+    - contextPath: FortiNDRCloud.Devices.external
+      description: If external traffic has been observed for this device.
+      type: boolean
+    - contextPath: FortiNDRCloud.Devices.internal
+      description: If internal traffic has been observed for this device.
+      type: boolean
+    - contextPath: FortiNDRCloud.Devices.ip_address
+      description: IP address of the device.
+      type: string
+    - contextPath: FortiNDRCloud.Devices.sensor_id
+      description: ID code of the sensor.
+      type: string
+    description: Get a list of all devices.
+  - name: fortindr-cloud-get-tasks
+    arguments:
+    - name: task_uuid
+      description: Filter to a specific task.
+    outputs:
+    - contextPath: FortiNDRCloud.Tasks.task_uuid
+      description: Unique ID of the task.
+      type: string
+    - contextPath: FortiNDRCloud.Tasks.actual_start_time
+      description: Date when the task actually ended.
+      type: date
+    - contextPath: FortiNDRCloud.Tasks.requested_start_time
+      description: Requested date for the task start.
+      type: date
+    - contextPath: FortiNDRCloud.Tasks.updated_email
+      description: Email address of the user that updated the task.
+      type: string
+    - contextPath: FortiNDRCloud.Tasks.created_uuid
+      description: Unique ID of the user that created the task.
+      type: string
+    - contextPath: FortiNDRCloud.Tasks.created
+      description: Date when the task was created.
+      type: date
+    - contextPath: FortiNDRCloud.Tasks.name
+      description: Name of the task.
+      type: string
+    - contextPath: FortiNDRCloud.Tasks.status
+      description: Current status of the task.
+      type: string
+    - contextPath: FortiNDRCloud.Tasks.created_email
+      description: Email address of the user that created the task.
+      type: string
+    - contextPath: FortiNDRCloud.Tasks.updated_uuid
+      description: Unique ID of the user that updated the task.
+      type: string
+    - contextPath: FortiNDRCloud.Tasks.bpf
+      description: Berkeley Packet Filter for the task.
+      type: string
+    - contextPath: FortiNDRCloud.Tasks.actual_end_time
+      description: Date when the task actually ended.
+      type: date
+    - contextPath: FortiNDRCloud.Tasks.account_code
+      description: ID code of the customer account.
+      type: string
+    - contextPath: FortiNDRCloud.Tasks.requested_end_time
+      description: Requested date for the task end.
+      type: date
+    - contextPath: FortiNDRCloud.Tasks.updated
+      description: Date when the task was updated.
+      type: date
+    - contextPath: FortiNDRCloud.Tasks.description
+      description: Description of the task.
+      type: string
+    - contextPath: FortiNDRCloud.Tasks.has_files
+      description: If this task has files (true/false).
+      type: boolean
+    - contextPath: FortiNDRCloud.Tasks.sensor_ids
+      description: Sensors this task is running on.
+      type: string
+    - contextPath: FortiNDRCloud.Tasks.files
+      description: Files captured for this task.
+      type: string
+    description: Get a list of all the PCAP tasks.
+  - name: fortindr-cloud-create-task
+    arguments:
+    - name: name
+      required: true
+      description: The name of the task.
+    - name: account_uuid
+      required: true
+      description: Account where the task will be created.
+    - name: description
+      required: true
+      description: A description for the task.
+    - name: bpf
+      required: true
+      description: The Berkeley Packet Filter for capture filtering.
+    - name: requested_start_date
+      required: true
+      description: The date the task will become active. (2019-01-30T00:00:00.000Z).
+    - name: requested_end_date
+      required: true
+      description: The date the task will become inactive. (2019-12-31T23:59:59.000Z).
+    - name: sensor_ids
+      description: Sensor IDs on which this task will run (separate multiple accounts by comma).
+    description: Create a new PCAP task.
+  - name: fortindr-cloud-get-telemetry-events
+    arguments:
+    - name: interval
+      auto: PREDEFINED
+      predefined:
+      - hour
+      - day
+      description: 'Interval to group by: hour (default) or day.'
+    - name: start_date
+      description: Start date/time to query for. The default is 1 day ago for interval=hour or 30 days ago for interval=day.
+    - name: end_date
+      description: End date/time to query for. The default is the current time.
+    - name: account_uuid
+      description: Account uuid to filter by.
+    - name: account_code
+      description: Account code to filter by.
+    - name: sensor_id
+      description: Sensor id to filter by.
+    - name: event_type
+      auto: PREDEFINED
+      predefined:
+      - flow
+      - dns
+      - http
+      - ssl
+      - x509
+      description: The type of event. Limited to flow, dns, http, ssl, and x509.
+    - name: group_by
+      auto: PREDEFINED
+      predefined:
+      - sensor_id
+      - event_type
+      description: 'Optionally group results by: sensor_id, event_type.'
+    outputs:
+    - contextPath: FortiNDRCloud.Telemetry.Events.timestamp
+      description: Timestamp of the grouped data.
+      type: date
+    - contextPath: FortiNDRCloud.Telemetry.Events.event_count
+      description: Number of events.
+      type: number
+    - contextPath: FortiNDRCloud.Telemetry.Events.sensor_id
+      description: Sensor name (if grouped by sensor_id).
+      type: string
+    - contextPath: FortiNDRCloud.Telemetry.Events.event_type
+      description: Type of event (if grouped by event_type).
+      type: string
+    description: Get event telemetry data grouped by time.
+  - name: fortindr-cloud-get-telemetry-packetstats
+    arguments:
+    - name: sensor_id
+      description: Scopes the returned metrics to the interfaces of the specified sensor ID.
+    - name: start_date
+      description: Scopes the returned metrics to dates after the given start_date. If empty returns most current packet stats.
+    - name: end_date
+      description: Scopes the returned metrics to dates before the given end_date. If empty returns most current packet stats.
+    - name: interval
+      description: Aggregation interval. 1 hr is not specified by default.
+    - name: group_by
+      auto: PREDEFINED
+      predefined:
+      - interface_name
+      - sensor_id
+      - account_code
+      description: 'Option to group by the following fields: interface_name, sensor_id, account_code.'
+    - name: account_code
+      description: Account code to filter by.
+    outputs:
+    - contextPath: FortiNDRCloud.Telemetry.Packetstats.account_code
+      description: Account code the data was filtered by.
+      type: string
+    - contextPath: FortiNDRCloud.Telemetry.Packetstats.timestamp
+      description: Timestamp of the grouped data.
+      type: date
+    - contextPath: FortiNDRCloud.Telemetry.Packetstats.interface_name
+      description: Interface the packet data was recorded from.
+      type: string
+    - contextPath: FortiNDRCloud.Telemetry.Packetstats.rx_bits_per_second
+      description: Receive throughput (bits per second).
+      type: number
+    - contextPath: FortiNDRCloud.Telemetry.Packetstats.rx_bytes
+      description: Receive data size (bytes).
+      type: number
+    - contextPath: FortiNDRCloud.Telemetry.Packetstats.rx_errors
+      description: Number of receive errors.
+      type: number
+    - contextPath: FortiNDRCloud.Telemetry.Packetstats.rx_packets
+      description: Number of receive packets.
+      type: number
+    - contextPath: FortiNDRCloud.Telemetry.Packetstats.sensor_id
+      description: Sensor ID packet data was recorded from.
+      type: string
+    - contextPath: FortiNDRCloud.Telemetry.Packetstats.tx_bytes
+      description: Transmit data size (bytes).
+      type: number
+    - contextPath: FortiNDRCloud.Telemetry.Packetstats.tx_errors
+      description: Number of transmit errors.
+      type: number
+    - contextPath: FortiNDRCloud.Telemetry.Packetstats.tx_packets
+      description: Number of transmit packets.
+      type: number
+    description: Get packetstats telemetry data grouped by time.
+  - name: fortindr-cloud-get-telemetry-network
+    arguments:
+    - name: account_code
+      description: Account code to filter by.
+    - name: interval
+      auto: PREDEFINED
+      predefined:
+      - day
+      - month_to_day
+      description: The interval to filter by (day, month_to_day).
+    - name: latest_each_month
+      description: Filters out all but the latest day and month_to_date for each month.
+    - name: sort_order
+      auto: PREDEFINED
+      predefined:
+      - asc
+      - desc
+      description: Sorts by account code first, then timestamp. asc or desc. The default is desc.
+    - name: limit
+      description: 'The maximum number of records to return, default: 1000.'
+      defaultValue: '1000'
+    - name: offset
+      description: 'The number of records to skip past. Default: 0.'
+    - name: start_date
+      description: Start date to filter by.
+    - name: end_date
+      description: End date to filter by.
+    outputs:
+    - contextPath: FortiNDRCloud.Telemetry.NetworkUsage.account_code
+      description: The account code for the network usage.
+      type: string
+    - contextPath: FortiNDRCloud.Telemetry.NetworkUsage.percentile_bps
+      description: The top percentile BPS value across sensors.
+      type: long
+    - contextPath: FortiNDRCloud.Telemetry.NetworkUsage.percentile
+      description: Percentile of BPS records to calculate for percentile_bps.
+      type: int
+    - contextPath: FortiNDRCloud.Telemetry.NetworkUsage.interval
+      description: Time span the calculation was performed over (day, month_to_day).
+    - contextPath: FortiNDRCloud.Telemetry.Packetstats.timestamp
+      description: The date the calculation was performed until.
+      type: date
+    description: Get network telemetry data grouped by time
+  - name: fortindr-cloud-get-entity-summary
+    arguments:
+    - name: entity
+      required: true
+      description: IP or Domain to get entity data for.
+    outputs:
+    - contextPath: FortiNDRCloud.Entity.Summary.entity
+      description: Entity identifier.
+      type: string
+    - contextPath: FortiNDRCloud.Entity.Summary.first_seen
+      description: First seen date for this entity.
+      type: date
+    - contextPath: FortiNDRCloud.Entity.Summary.last_seen
+      description: Last seen date for this entity.
+      type: date
+    - contextPath: FortiNDRCloud.Entity.Summary.prevalence_count_internal
+      description: Prevalence for this entity within the environment.
+      type: number
+    description: Get summary information about an IP or domain.
+  - name: fortindr-cloud-get-entity-pdns
+    arguments:
+    - name: entity
+      required: true
+      description: IP or Domain to get passive DNS data for.
+    - name: record_type
+      description: Limit results to the specified DNS query type(s).
+    - name: source
+      description: Limit the results to the specified data source(s).
+    - name: resolve_external
+      description: When true, the service will query non-ICEBRG data sources. false by default.
+    - name: start_date
+      description: The earliest date before which to exclude results. Day granularity, inclusive.
+    - name: end_date
+      description: The latest date after which to exclude results. Day granularity, inclusive.
+    - name: account_uuid
+      description: Limit results to the specified account UUID(s). Defaults to all accounts for which the user has permission.
+    - name: limit
+      description: Maximum number of records to be returned. Default 1000.
+    outputs:
+    - contextPath: FortiNDRCloud.Entity.PDNS.account_uuid
+      description: Unique ID for the customer account.
+      type: string
+    - contextPath: FortiNDRCloud.Entity.PDNS.first_seen
+      description: First seen date for matching dns information.
+      type: date
+    - contextPath: FortiNDRCloud.Entity.PDNS.last_seen
+      description: Last seen date for matching dns information.
+      type: date
+    - contextPath: FortiNDRCloud.Entity.PDNS.record_type
+      description: DNS record type.
+      type: string
+    - contextPath: FortiNDRCloud.Entity.PDNS.resolved
+      description: Domain name resolved from the DNS record.
+      type: string
+    - contextPath: FortiNDRCloud.Entity.PDNS.sensor_id
+      description: ID code of the sensor.
+      type: string
+    - contextPath: FortiNDRCloud.Entity.PDNS.source
+      description: Source of the DNS record.
+      type: string
+    description: Get passive DNS information about an IP or domain.
+  - name: fortindr-cloud-get-entity-dhcp
+    arguments:
+    - name: entity
+      required: true
+      description: IP to get DHCP data for.
+    - name: start_date
+      description: The earliest date before which to exclude results. Day granularity, inclusive.
+    - name: end_date
+      description: The latest date after which to exclude results. Day granularity, inclusive.
+    - name: account_uuid
+      description: Limit results to the specified account UUID(s). Defaults to all accounts for which the user has permission.
+    outputs:
+    - contextPath: FortiNDRCloud.Entity.DHCP.customer_id
+      description: ID code of the customer account.
+      type: string
+    - contextPath: FortiNDRCloud.Entity.DHCP.hostnames
+      description: Hostname of the entity.
+      type: string
+    - contextPath: FortiNDRCloud.Entity.DHCP.ip
+      description: IP Address of the entity.
+      type: string
+    - contextPath: FortiNDRCloud.Entity.DHCP.lease_end
+      description: DHCP lease end date.
+      type: date
+    - contextPath: FortiNDRCloud.Entity.DHCP.lease_start
+      description: DHCP lease start date.
+      type: date
+    - contextPath: FortiNDRCloud.Entity.DHCP.mac
+      description: MAC address of the entity.
+      type: string
+    - contextPath: FortiNDRCloud.Entity.DHCP.sensor_id
+      description: Sensor ID that recorded the entity data.
+      type: string
+    - contextPath: FortiNDRCloud.Entity.DHCP.start_lease_as_long
+      description: Start Date as a long value.
+      type: number
+    description: Get DHCP information about an IP address.
+  - name: fortindr-cloud-get-entity-file
+    arguments:
+    - name: hash
+      required: true
+      description: File hash. Can be an MD5, SHA1, or SHA256 hash of the file.
+    outputs:
+    - contextPath: FortiNDRCloud.Entity.File.entity
+      description: The entity identifier.
+      type: string
+    - contextPath: FortiNDRCloud.Entity.File.sha1
+      description: The entity SHA1 hash.
+      type: string
+    - contextPath: FortiNDRCloud.Entity.File.sha256
+      description: The entity SHA256 hash.
+      type: string
+    - contextPath: FortiNDRCloud.Entity.File.md5
+      description: The entity MD5 hash.
+      type: string
+    - contextPath: FortiNDRCloud.Entity.File.customer_id
+      description: ID code of the customer account.
+      type: string
+    - contextPath: FortiNDRCloud.Entity.File.names
+      description: File names for the entity.
+      type: string
+    - contextPath: FortiNDRCloud.Entity.File.prevalence_count_internal
+      description: Prevalence for this file within the environment.
+      type: number
+    - contextPath: FortiNDRCloud.Entity.File.last_seen
+      description: Last seen date for this file.
+      type: date
+    - contextPath: FortiNDRCloud.Entity.File.mime_type
+      description: File MIME type.
+      type: string
+    - contextPath: FortiNDRCloud.Entity.File.first_seen
+      description: First seen date for this file.
+      type: date
+    - contextPath: FortiNDRCloud.Entity.File.bytes
+      description: File size.
+      type: number
+    - contextPath: FortiNDRCloud.Entity.File.pe
+      description: File Portable Executable attributes.
+      type: string
+    description: Get information about a file.
+  - name: fortindr-cloud-get-detections
+    arguments:
+    - name: rule_uuid
+      description: Filter to a specific rule.
+    - name: account_uuid
+      description: For those with access to multiple accounts, specify a single account to return results from.
+    - name: status
+      description: 'Filter by detection status: active, resolved.'
+    - name: device_ip
+      description: Device IP to filter by.
+    - name: sensor_id
+      description: Sensor ID to filter by.
+    - name: muted
+      description: 'List detections that a user muted: true / false.'
+    - name: muted_device
+      description: 'List detections for muted devices: true / false.'
+    - name: muted_rule
+      description: List detections for muted rules.
+    - name: include
+      auto: PREDEFINED
+      predefined:
+      - rules
+      - indicators
+      description: Include additional information in the response (rules).
+    - name: sort_by
+      auto: PREDEFINED
+      predefined:
+      - first_seen
+      - last_seen
+      - status
+      - device_ip
+      - indicator_count
+      description: Field to sort by (first_seen, last_seen, status, device_ip, indicator_count).
+    - name: sort_order
+      auto: PREDEFINED
+      predefined:
+      - asc
+      - desc
+      description: Sort direction ("asc" vs "desc").
+    - name: offset
+      description: The number of records to skip past.
+    - name: limit
+      description: 'The number of records to return, default: 100, max: 1000.'
+      defaultValue: '1000'
+    - name: created_start_date
+      description: Created start date to filter by (inclusive).
+    - name: created_end_date
+      description: Created end date to filter by (exclusive).
+    - name: created_or_shared_start_date
+      description: Created or shared start date to filter by (inclusive).
+    - name: created_or_shared_end_date
+      description: Created or shared end date to filter by (exclusive).
+    - name: active_start_date
+      description: Active start date to filter by (inclusive).
+    - name: active_end_date
+      description: Active end date to filter by (exclusive).
+    outputs:
+    - contextPath: FortiNDRCloud.Detections.muted_rule
+      description: Is this rule muted (true/false).
+      type: boolean
+    - contextPath: FortiNDRCloud.Detections.created
+      description: Date when the detection was created.
+      type: date
+    - contextPath: FortiNDRCloud.Detections.account_uuid
+      description: Unique ID of the account for this detection.
+    - contextPath: FortiNDRCloud.Detections.resolution_timestamp
+      description: Date when the detection was resolved.
+      type: date
+    - contextPath: FortiNDRCloud.Detections.first_seen
+      description: Date when the detection was first seen.
+      type: date
+    - contextPath: FortiNDRCloud.Detections.muted
+      description: If the detection is muted or not (true/false).
+      type: boolean
+    - contextPath: FortiNDRCloud.Detections.resolution
+      description: Resolution type.
+      type: string
+    - contextPath: FortiNDRCloud.Detections.muted_user_uuid
+      description: Unique ID of the user that muted the detection.
+      type: string
+    - contextPath: FortiNDRCloud.Detections.last_seen
+      description: Date when the detection was last seen.
+      type: date
+    - contextPath: FortiNDRCloud.Detections.status
+      description: Current status of the detection.
+      type: string
+    - contextPath: FortiNDRCloud.Detections.resolution_user_uuid
+      description: Unique identifier of the user that resolved the detection.
+      type: string
+    - contextPath: FortiNDRCloud.Detections.resolution_comment
+      description: Comment entered when detection was resolved.
+      type: string
+    - contextPath: FortiNDRCloud.Detections.muted_comment
+      description: Comment entered when detection was muted.
+      type: string
+    - contextPath: FortiNDRCloud.Detections.sensor_id
+      description: ID code of the sensor.
+      type: string
+    - contextPath: FortiNDRCloud.Detections.rule_uuid
+      description: Unique ID of the rule for this detection.
+      type: string
+    - contextPath: FortiNDRCloud.Detections.updated
+      description: Date when the detection was last updated.
+      type: date
+    - contextPath: FortiNDRCloud.Detections.uuid
+      description: Unique ID of the detection.
+      type: string
+    - contextPath: FortiNDRCloud.Detections.muted_device_uuid
+      description: Unique ID of the muted device.
+      type: string
+    - contextPath: FortiNDRCloud.Detections.device_ip
+      description: IP address of the detection.
+      type: string
+    description: Get a list of detections.
+  - name: fortindr-cloud-get-detection-rules
+    arguments:
+    - name: account_uuid
+      description: For those with access to multiple accounts, specify a single account to return results from.
+    - name: search
+      description: Filter name or category.
+    - name: has_detections
+      auto: PREDEFINED
+      predefined:
+      - 'true'
+      - 'false'
+      description: Include rules that have unmuted, unresolved detections.
+    - name: severity
+      auto: PREDEFINED
+      predefined:
+      - low
+      - moderate
+      - high
+      description: 'Filter by severity: high, moderate, low.'
+    - name: confidence
+      auto: PREDEFINED
+      predefined:
+      - low
+      - moderate
+      - high
+      description: 'Filter by confidence: high, moderate, low.'
+    - name: category
+      auto: PREDEFINED
+      predefined:
+      - Attack:Command and Control
+      - Attack:Exploitation
+      - Attack:Exfiltration
+      - Attack:Installation
+      - Attack:Lateral Movement
+      - Attack:Infection Vector
+      - Attack:Miscellaneous
+      - Miscellaneous
+      - Posture:Anomalous Activity
+      - Posture:Insecure Configuration
+      - Posture:Potentially Unauthorized Software or Device
+      - Posture:Miscellaneous
+      - PUA:Adware
+      - PUA:Spyware
+      - PUA:Unauthorized Resource Use
+      - PUA:Miscellaneous
+      description: Category to filter by.
+    - name: rule_account_muted
+      auto: PREDEFINED
+      predefined:
+      - 'true'
+      - 'false'
+      description: 'Include muted rules: true / false.'
+    - name: enabled
+      auto: PREDEFINED
+      predefined:
+      - 'true'
+      - 'false'
+      description: Enabled rules only.
+    - name: sort_by
+      auto: PREDEFINED
+      predefined:
+      - created
+      - updated
+      - detections
+      - severity
+      - confidence
+      - category
+      - last_seen
+      - detections_muted
+      description: 'The field to sort by: created, updated, detections, severity, confidence, category, last_seen, detections_muted. Defaults to updated.'
+    - name: sort_order
+      auto: PREDEFINED
+      predefined:
+      - asc
+      - desc
+      description: Sort direction ("asc" vs "desc").
+    - name: offset
+      description: The number of records to skip past.
+    - name: limit
+      description: 'The number of records to return, default: 100, max: 1000.'
+    outputs:
+    - contextPath: FortiNDRCloud.Rules.enabled
+      description: 'Status of the rule: If true it is enabled, if false it is disabled.'
+      type: boolean
+    - contextPath: FortiNDRCloud.Rules.updated_user_uuid
+      description: User ID that updated the rule.
+      type: string
+    - contextPath: FortiNDRCloud.Rules.rule_accounts
+      description: Accounts which have seen detections for this rule.
+      type: string
+    - contextPath: FortiNDRCloud.Rules.auto_resolution_minutes
+      description: Length of time (in minutes) the rule will auto-resolve detections.
+      type: number
+    - contextPath: FortiNDRCloud.Rules.created
+      description: Date the rule was created.
+      type: date
+    - contextPath: FortiNDRCloud.Rules.account_uuid
+      description: Account ID the rule was created under.
+      type: string
+    - contextPath: FortiNDRCloud.Rules.confidence
+      description: Confidence level of the rule.
+      type: string
+    - contextPath: FortiNDRCloud.Rules.name
+      description: Name of the rule.
+      type: string
+    - contextPath: FortiNDRCloud.Rules.created_user_uuid
+      description: User ID that created the rule.
+      type: string
+    - contextPath: FortiNDRCloud.Rules.query_signature
+      description: IQL signature of the rule.
+      type: string
+    - contextPath: FortiNDRCloud.Rules.shared_account_uuids
+      description: Account IDs the rule is visible to.
+      type: string
+    - contextPath: FortiNDRCloud.Rules.run_account_uuids
+      description: Account IDs the rule runs on.
+      type: string
+    - contextPath: FortiNDRCloud.Rules.updated
+      description: Date the rule was updated.
+      type: date
+    - contextPath: FortiNDRCloud.Rules.uuid
+      description: Unique ID of the rule.
+      type: string
+    - contextPath: FortiNDRCloud.Rules.description
+      description: Description of the rule.
+      type: string
+    - contextPath: FortiNDRCloud.Rules.severity
+      description: Severity level of the rule.
+      type: string
+    - contextPath: FortiNDRCloud.Rules.category
+      description: Category of the rule.
+      type: string
+    description: Get a list of detection rules.
+  - name: fortindr-cloud-resolve-detection
+    arguments:
+    - name: detection_uuid
+      required: true
+      description: Detection UUID to resolve.
+    - name: resolution
+      required: true
+      auto: PREDEFINED
+      predefined:
+      - true_positive_mitigated
+      - true_positive_no_action
+      - false_positive
+      - unknown
+      description: 'Resolution state. Options: true_positive_mitigated, true_posititve_no_action, false_positive, unknown.'
+    - name: resolution_comment
+      description: Optional comment for the resolution.
+    description: Resolve a specific detection.
+  - name: fortindr-cloud-get-detection-events
+    arguments:
+    - name: detection_uuid
+      required: true
+      description: Detection UUID to get events for.
+    - name: offset
+      description: The number of records to skip past.
+    - name: limit
+      description: 'The number of records to return, default: 100, max: 1000.'
+    outputs:
+    - contextPath: FortiNDRCloud.Events.event_type
+      description: Event type.
+      type: string
+    - contextPath: FortiNDRCloud.Events.uuid
+      description: Unique ID for the event.
+      type: string
+    - contextPath: FortiNDRCloud.Events.customer_id
+      description: ID code of the customer account.
+      type: string
+    - contextPath: FortiNDRCloud.Events.sensor_id
+      description: ID code of the sensor.
+      type: string
+    - contextPath: FortiNDRCloud.Events.timestamp
+      description: Date the event occurred.
+      type: date
+    - contextPath: FortiNDRCloud.Events.flow_id
+      description: Unique ID of the flow record.
+      type: string
+    - contextPath: FortiNDRCloud.Events.src
+      description: Source's information.
+      type: string
+    - contextPath: FortiNDRCloud.Events.dst
+      description: Destination's information'.
+      type: string
+    - contextPath: FortiNDRCloud.Events.host_domain
+      description: Domain name.
+      type: string
+    description: Get a list of the events that matched on a specific detection.
+  - name: fortindr-cloud-get-detection-rule-events
+    arguments:
+    - name: rule_uuid
+      required: true
+      description: Rule UUID to get events for.
+    - name: account_uuid
+      description: Account uuid to filter by.
+    - name: offset
+      description: The number of records to skip past.
+    - name: limit
+      description: 'The number of records to return, default: 100, max: 1000.'
+    outputs:
+    - contextPath: FortiNDRCloud.Events.src_ip
+      description: Source IP address.
+      type: string
+    - contextPath: FortiNDRCloud.Events.dst_ip
+      description: Destination IP address.
+      type: string
+    - contextPath: FortiNDRCloud.Events.src_port
+      description: Source port number.
+      type: number
+    - contextPath: FortiNDRCloud.Events.dst_port
+      description: Destination port number.
+      type: number
+    - contextPath: FortiNDRCloud.Events.host_domain
+      description: Domain name.
+      type: string
+    - contextPath: FortiNDRCloud.Events.flow_id
+      description: Unique ID of the flow record.
+      type: string
+    - contextPath: FortiNDRCloud.Events.event_type
+      description: Event type.
+      type: string
+    - contextPath: FortiNDRCloud.Events.sensor_id
+      description: ID code of the sensor.
+      type: string
+    - contextPath: FortiNDRCloud.Events.timestamp
+      description: Date the event occurred.
+      type: date
+    - contextPath: FortiNDRCloud.Events.customer_id
+      description: ID code of the customer account.
+      type: string
+    - contextPath: FortiNDRCloud.Events.uuid
+      description: Unique ID for the event.
+      type: string
+    description: Get a list of the events that matched on a specific rule.
+  - name: fortindr-cloud-create-detection-rule
+    arguments:
+    - name: account_uuid
+      required: true
+      description: Account where the rule will be created.
+    - name: name
+      required: true
+      description: The name of the rule.
+    - name: category
+      required: true
+      auto: PREDEFINED
+      predefined:
+      - Attack:Command and Control
+      - Attack:Exploitation
+      - Attack:Exfiltration
+      - Attack:Installation
+      - Attack:Lateral Movement
+      - Attack:Infection Vector
+      - Attack:Miscellaneous
+      - Miscellaneous
+      - Posture:Anomalous Activity
+      - Posture:Insecure Configuration
+      - Posture:Potentially Unauthorized Software or Device
+      - Posture:Miscellaneous
+      - PUA:Adware
+      - PUA:Spyware
+      - PUA:Unauthorized Resource Use
+      - PUA:Miscellaneous
+      description: The category of the rule.
+    - name: query_signature
+      required: true
+      description: The IQL query for the rule.
+    - name: description
+      required: true
+      description: A description for the rule.
+    - name: severity
+      required: true
+      auto: PREDEFINED
+      predefined:
+      - low
+      - moderate
+      - high
+      description: The severity of the rule.
+    - name: confidence
+      required: true
+      auto: PREDEFINED
+      predefined:
+      - low
+      - moderate
+      - high
+      description: The confidence of the rule.
+    - name: run_account_uuids
+      required: true
+      description: Account UUIDs on which this rule will run. This will usually be just your own account UUID. (separate multiple accounts by comma).
+    - name: auto_resolution_minutes
+      description: The number of minutes after which detections will be auto-resolved. If 0 then detections have to be manually resolved.
+    - name: device_ip_fields
+      required: true
+      auto: PREDEFINED
+      predefined:
+      - DEFAULT
+      - src.ip
+      - dst.ip
+      - dhcp:assignment.ip
+      - dns:answers.ip
+      - http:host.ip
+      - http:uri.host.ip
+      - http:referrer.host.ip
+      - http:headers.location.host.ip
+      - http:headers.origin.host.ip
+      - http:headers.proxied_client_ips.ip
+      - http:headers.refresh.uri.host.ip
+      - smtp:helo.ip
+      - smtp:x_originating_ip.ip
+      - smtp:path.ip
+      - software:host.ip
+      - ssl:server_name_indication.ip
+      - suricata:http.host.ip
+      - x509:san_dns.ip
+      - x509:san_ip.ip
+      description: List of event fields to check for impacted devices.
+    description: Create a new detection rule.
+  dockerimage: <docker image name>
+  isfetch: true
+  runonce: false
+  subtype: python3
+fromversion: 6.6.0
+defaultclassifier: Fortinet FortiNDR Cloud
+image: data:image/png;base64,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
+detaileddescription: "### Partner Contributed Integration\n#### Integration Author: Fortinet\nSupport and maintenance for this integration are provided by the author. Please use the following contact details:\n- **Email**: [fnc-cortex@fortinet.com](mailto:fnc-cortex@fortinet.com)\n- **URL**: [https://www.fortinet.com/products/network-detection-and-response](https://www.fortinet.com/products/network-detection-and-response)\n***\n# Fortinet FortiNDR Cloud Integration for Cortex XSOAR\n\n### FortiNDR Cloud Overview\n\nFortinet FortiNDR Cloud is a cloud-based network detection and response solution built for the rapid detection of threat activity, investigation of suspicious behavior, proactive hunting for potential risks, and directing a fast and effective response to active threats.\n\n### Integration Overview\n\nThe Fortinet FortiNDR Cloud Cortex XSOAR integration enables security teams to utilize the features and functionality of the FortiNDR Cloud solution with their existing Cortex XSOAR deployment. The integration leverages FortiNDR Cloud’s fully RESTful APIs to interact with the FortiNDR Cloud backend to introduce specific data sets into Cortex XSOAR. This document contains all the necessary information to configure, install, and use the integration.\n\nFor more information about the Cortex XSOAR integration visit the FortiNDR Cloud help documentation here: <https://docs.fortinet.com/document/fortindr-cloud/latest/cortex-xsoar-integration-guide>\n\n#### Installation\n\nTo install the integration:\n\n1. Navigate to the Settings section of the Cortex XSOAR interface. Ensure you are on the Integration tab and Instances sub-tab. In the Search box, type “Fortinet FortiNDR Cloud” to search for the integration.\n\n  Alternatively, you can manually install the integration using the integration-Fortinet_FortiNDR_Cloud.yml file available on Fortinet’s GitHub repository (here). Once you have the file downloaded, select the Upload button on the Settings page\n2. Click the Add Instance link to create a new instance of the add-on.\n3. In the settings, enter a Name for the instance, and a valid FortiNDR Cloud API Key. (in the FortiNDR Cloud portal, navigate to the Profile Settings page to create a new API key).\n\n  Optional - Select the Fetches Incidents option to have the integration periodically pull new detections from FortiNDR Cloud into Cortex XSOAR. Note: This will pull ALL events your portal account has access to unless you specify a specific account UUID.\n      Optional – Choose the default Incident Type category for new incidents. The integration automatically categorizes incidents based on their FortiNDR Cloud detection rule category.\n4. Choose either Use Single Engine or Use Load-Balancing Group depending on your Cortex XSOAR deployment.\n5. Click the Test button to test the instance. If the instance can connect to the FortiNDR Cloud APIs, you should see a successful message like the one above.\n6. Lastly, click the Done button to complete the installation of the integration.\n\n#### Commands\n\nThe integration includes several commands that can be executed within Cortex XSOAR to interact with Fortinet FortiNDR Cloud. Below is a list of all the commands and the following sections detail the arguments for each command.\n\n| Command | Description |\n| --- | --- |\n| fortindr-cloud-get-sensors | Get a list of all sensors |\n| fortindr-cloud-get-devices | Get a list of all devices. |\n| fortindr-cloud-get-tasks | Get a list of all the PCAP tasks |\n| fortindr-cloud-create-task | Create a new PCAP task |\n| fortindr-cloud-get-detections | Get a list of detections |\n| fortindr-cloud-get-detection-rules | Get a list of detection rules |\n| fortindr-cloud-resolve-detection | Resolve a specific detection |\n| fortindr-cloud-get-detection-rule-events | Get a list of the events that matched on a specific rule |\n| fortindr-cloud-create-detection-rule | Create a new detection rule |\n| fortindr-cloud-get-entity-summary | Get summary information about an IP or domain. |\n| fortindr-cloud-get-entity-pdns | Get passive DNS information about an IP or domain |\n| fortindr-cloud-get-entity-dhcp| Get DHCP information about an IP address |\n| fortindr-cloud-get-entity-file | Get information about a file |\n| fortindr-cloud-get-telemetry-events | Get event telemetry data grouped by time |\n| fortindr-cloud-get-telemetry-network | Get network telemetry data grouped by time |\n| fortindr-cloud-get-telemetry-packetstats | Get network metrics to a given sensor's interfaces |\n\n\n---\n[View Integration Documentation](https://docs.fortinet.com/document/fortindr-cloud/2024.8.0/cortex-xsoar-integration-guide/690447/overview)"
